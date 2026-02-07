@@ -1,0 +1,92 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "{{.project_name}}",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/python:1-3-bullseye", 
+	"mounts": [
+		// IMPORTANT! your container will fail to start if the path in your WSL does not exist!
+		// use git credentials from the host wsl
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind",
+		//use databricks credentials from the host wsl
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.databrickscfg,target=/home/vscode/.databrickscfg,type=bind",
+		//use poetry config/credentials from the host wsl
+		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/pypoetry,target=/home/vscode/.config/pypoetry,type=bind"
+	],
+	"runArgs": ["--name", "{{.project_name}}"],
+	"features": {
+		"./de-cf-devcontainer-features/src/pg-certs": {},
+		"./de-cf-devcontainer-features/src/databricks-cli": {},
+		"ghcr.io/devcontainers/features/azure-cli:1": {},
+		//"ghcr.io/devcontainers-contrib/features/poetry:2": {},
+		//"ghcr.io/devcontainers/features/node:1": {},
+		//"ghcr.io/devcontainers-contrib/features/snyk-cli:1": {},
+		//"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		//"ghcr.io/devcontainers/features/go:1": {},
+		//"ghcr.io/devcontainers-contrib/features/node-asdf:0":{}
+	},
+	"overrideFeatureInstallOrder": [
+		"./de-cf-devcontainer-features/src/pg-certs",
+		"./de-cf-devcontainer-features/src/databricks-cli",
+		"ghcr.io/devcontainers/features/azure-cli",
+		//"ghcr.io/devcontainers-contrib/features/poetry",
+		//"ghcr.io/devcontainers/features/node",
+		//"ghcr.io/devcontainers-contrib/features/snyk-cli"
+		//"ghcr.io/devcontainers/features/docker-outside-of-docker",
+		//"ghcr.io/devcontainers/features/go",
+		//"ghcr.io/devcontainers-contrib/features/node-asdf"
+	],
+	"containerEnv":{
+		"NODE_OPTIONS": "--use-openssl-ca",
+		"REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+		"NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+		"CURL_CA_BUNDLE ": "/etc/ssl/certs/ca-certificates.crt",
+		"SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"
+	},
+	"remoteEnv":{
+		"NODE_OPTIONS": "--use-openssl-ca",
+		"REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+		"NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+		"CURL_CA_BUNDLE ": "/etc/ssl/certs/ca-certificates.crt",
+		"SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt"
+	},
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"http.proxyStrictSSL": false
+			},
+			"extensions": [
+				"njpwerner.autodocstring",
+				"databricks.databricks",
+				//"databricks.sqltools-databricks-driver",
+				//"paiqo.databricks-vscode",
+				"tamasfe.even-better-toml",
+				"github.vscode-github-actions",
+				"ms-python.vscode-pylance",
+				"ms-python.pylint",
+				"ms-python.python",
+				"ms-python.debugpy",
+				"ms-python.mypy-type-checker",
+				"donjayamanne.python-environment-manager",
+				"snyk-security.snyk-vulnerability-scanner",
+				"SonarSource.sonarlint-vscode",
+				//"mtxr.sqltools",
+				"dorzey.vscode-sqlfluff",
+				"redhat.vscode-yaml",
+				"ms-python.black-formatter",
+				"ms-python.isort"
+			]
+		}
+	},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "./.devcontainer/postCreateCommand.sh",
+	"initializeCommand": "./.devcontainer/initializeCommand.sh"
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

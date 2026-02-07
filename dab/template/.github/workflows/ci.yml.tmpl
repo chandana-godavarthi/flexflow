@@ -1,0 +1,350 @@
+name: Build, Analyze, Test, Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  version:
+    name: Version & Tag
+    runs-on: ubuntu-latest
+    outputs:
+      fullSemVer: {{`${{ steps.version.outputs.fullSemVer }}`}}
+      majorMinorPatch: {{`${{ steps.version.outputs.majorMinorPatch }}`}}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: gittools/actions/gitversion/setup@v1.1.1
+        name: Install GitVersion
+        with:
+          versionSpec: "5.x"
+      - name: Determine Version
+        id: version
+        uses: gittools/actions/gitversion/execute@v1.1.1
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: {{`${{ steps.version.outputs.fullSemVer }}`}}
+          tag_exists_error: true
+      - uses: rickstaa/action-create-tag@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag: {{`${{ steps.version.outputs.majorMinorPatch }}`}}
+          tag_exists_error: false
+
+  gitleaks:
+    name: Gitleaks (Secrets)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Gitleaks
+      uses: gitleaks/gitleaks-action@v2.3.7
+      env:
+        GITLEAKS_LICENSE: {{`${{ secrets.GITLEAKS_LICENSE}}`}}
+        GITHUB_TOKEN: {{`${{ secrets.GITHUB_TOKEN }}`}}
+
+  snyk:
+    name: Snyk (Security & Dependencies)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    {{ if eq .developer_workflow "vscode-python" }}
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install
+    {{end}}
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/python@master
+      env:
+        SNYK_TOKEN: {{`${{ secrets.SNYK_TOKEN }}`}}
+      with:
+        command: code test
+    # - name: Run Snyk to check for vulnerabilities
+      # uses: snyk/actions/python@master
+      # env:
+        # SNYK_TOKEN: {{`${{ secrets.SNYK_TOKEN }}`}}
+      # with:
+        # command: monitor
+
+  validate:
+    name: Validate Bundle
+    environment:
+      name: {{`${{ github.ref_name == 'main' && 'prod' || 'uat' }}`}}
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: databricks/setup-cli@main
+    {{ if eq .developer_workflow "vscode-python" }}
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install
+    - run: poetry build
+    {{ end }}
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: {{`${{ secrets.AZURE_CLIENT_ID }}`}}
+        tenant-id: {{`${{ secrets.AZURE_TENANT_ID }}`}}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    - run: |
+        databricks bundle validate
+      env:
+        TARGET: {{`${{ github.ref_name == 'main' && 'prod' || 'uat' }}`}}
+        DATABRICKS_HOST: {{`${{vars.WORKSPACE_URL}}`}}
+      name: Validate Bundle
+
+  {{ if eq .developer_workflow "vscode-python" }}
+  black:
+    name: Black (Python Formatting)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Black and isort
+      run: pip install black isort
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Run isort
+      run: isort --check --diff --profile black .
+    - name: Check Formatting 
+      run: black --check --diff --verbose .
+    
+  # mypy:
+  #  name: Mypy (Python Type Hints)
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - name: Checkout
+  #    uses: actions/checkout@v3
+  #  - uses: actions/setup-python@v5
+  #    with:
+  #      python-version: '3.11'
+  #  - name: Install Poetry Action
+  #    uses: snok/install-poetry@v1.3.4
+  #    with:
+  #      virtualenvs-in-project: true
+  #  - name: Mypy
+  #    uses: sasanquaneuf/mypy-github-action@releases/v1.3
+  #    with:
+  #      checkName: 'mypy'   # NOTE: this needs to be the same as the job name
+  #    env:
+  #      GITHUB_TOKEN: {{`${{ secrets.GITHUB_TOKEN }}`}}
+
+  sqlfluff:
+    name: Sqlfluff (Sql Formatting)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install
+    - run: .venv/bin/sqlfluff lint {{.project_name}}
+  {{end}}
+
+  test:
+    name: Test & SonarQube
+    {{ if eq .developer_workflow "vscode-python" }}
+    needs: [version, gitleaks, validate, snyk, black, sqlfluff]
+    {{else}}
+    needs: [version, gitleaks, validate, snyk]
+    {{end}}
+    runs-on: ubuntu-latest
+    environment:
+      name: uat
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    {{ if eq .developer_workflow "vscode-python" }}
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - name: Set Version
+      uses: sandstromviktor/toml-editor@2.0.0
+      with:
+        file: "pyproject.toml"
+        key: "project.version"
+        value: {{`"${{ needs.version.outputs.majorMinorPatch }}"`}}
+    - run: echo '__version__ = "{{`${{ needs.version.outputs.majorMinorPatch }}`}}"' > {{.project_name}}/__init__.py
+    {{end}}
+    - uses: databricks/setup-cli@main
+    {{ if eq .developer_workflow "vscode-python" }}
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install --with dev
+    - run: poetry build
+    {{end}}
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: {{`${{ secrets.AZURE_CLIENT_ID }}`}}
+        tenant-id: {{`${{ secrets.AZURE_TENANT_ID }}`}}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    {{ if eq .developer_workflow "vscode-python" }}
+    - run: poetry run pytest --junitxml=testresults.xml --cov=./ --cov-report=xml:coverage.xml
+      env:
+        DATABRICKS_CLUSTER_ID: {{`${{vars.WORKSPACE_CLUSTER_ID}}`}}
+        DATABRICKS_HOST: {{`${{vars.WORKSPACE_URL}}`}}
+    {{end}}
+    - uses: sonarsource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: {{`${{ secrets.SONAR_TOKEN }}`}}
+        SONAR_HOST_URL: {{`${{ vars.SONAR_HOST_URL }}`}}
+      with:
+        args: >
+          -Dsonar.projectKey={{`${{vars.SONAR_PROJECT_KEY}}`}}
+          -Dsonar.python.coverage.reportPaths=coverage.xml
+          -Dsonar.python.xunit.reportPath=testresults.xml
+          -Dsonar.python.version=3
+          -Dsonar.sources={{.project_name}}
+          -Dsonar.tests=tests
+          -Dsonar.verbose=true
+          -Dsonar.projectVersion={{`${{ needs.version.outputs.majorMinorPatch }}`}}
+
+  {{- if eq .migrate "yes" }}
+  migrate:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment:
+      name: {{`${{ github.ref_name == 'main' && 'prod' || 'uat' }}`}}
+    name: Migrate Schema
+    permissions:
+      id-token: write
+      contents: read
+    needs: [test,version]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: databricks/setup-cli@main
+    {{ if eq .developer_workflow "vscode-python" }}
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - name: Set Version
+      uses: sandstromviktor/toml-editor@2.0.0
+      with:
+        file: "pyproject.toml"
+        key: "project.version"
+        value: {{`"${{ needs.version.outputs.majorMinorPatch }}"`}}
+    - run: echo '__version__ = "{{`${{ needs.version.outputs.majorMinorPatch }}`}}"' > {{.project_name}}/__init__.py
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install
+    - run: poetry build
+    {{end}}
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: {{`${{ secrets.AZURE_CLIENT_ID }}`}}
+        tenant-id: {{`${{ secrets.AZURE_TENANT_ID }}`}}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    {{ if eq .developer_workflow "vscode-python" }}
+    - run: |
+        echo "migrating schema for %ENVIRONMENT"
+        poetry run migrate
+      name: Migrate Schema
+      env:
+        DATABRICKS_CLUSTER_ID: {{`${{vars.WORKSPACE_CLUSTER_ID}}`}}
+        ENVIRONMENT: {{`${{ github.ref_name == 'main' && 'prod' || 'dev' }}`}}
+        DATABRICKS_HOST: {{`${{vars.WORKSPACE_URL}}`}}
+    {{end}}
+    {{ if eq .developer_workflow "ui-notebook" }}
+    - run: |
+        echo "migrating schema for $ENVIRONMENT"
+        databricks bundle run migrate{{.project_name}}_schema
+      name: Migrate Schema
+      env:
+        DATABRICKS_HOST: {{`${{vars.WORKSPACE_URL}}`}}
+    {{end}}
+  {{ end }}
+    
+  deploy:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment:
+      name: {{`${{ github.ref_name == 'main' && 'prod' || 'uat' }}`}}
+    name: Deploy Workflow Bundle
+    {{- if eq .migrate "yes" }}
+    needs: [migrate,version]
+    {{ else }}
+    needs: [test,version]
+    {{ end }}
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: databricks/setup-cli@main
+    {{ if eq .developer_workflow "vscode-python" }}
+    - name: Install Poetry Action
+      uses: snok/install-poetry@v1.3.4
+      with:
+        virtualenvs-in-project: true
+    - name: Set Version
+      uses: sandstromviktor/toml-editor@2.0.0
+      with:
+        file: "pyproject.toml"
+        key: "project.version"
+        value: {{`"${{ needs.version.outputs.majorMinorPatch }}"`}}
+    - run: echo '__version__ = "{{`${{ needs.version.outputs.majorMinorPatch }}`}}"' > {{.project_name}}/__init__.py
+    - run: poetry config http-basic.pg_jfrog "{{`${{secrets.JFROG_USER}}`}}" {{`${{secrets.JFROG_TOKEN}}`}}
+    - run: poetry install
+    - run: poetry build
+    {{end}}
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: {{`${{ secrets.AZURE_CLIENT_ID }}`}}
+        tenant-id: {{`${{ secrets.AZURE_TENANT_ID }}`}}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    - run: |
+        echo "deploying to $TARGET"
+        databricks bundle deploy -t $TARGET
+      env:
+        # DATABRICKS_CLUSTER_ID: {{`${{vars.WORKSPACE_CLUSTER_ID}}`}} # set this to override bundle cluster id
+        TARGET: {{`${{ github.ref_name == 'main' && 'prod' || 'uat' }}`}}
+        DATABRICKS_HOST: {{`${{vars.WORKSPACE_URL}}`}}
+      name: Deploy Workflow Bundle

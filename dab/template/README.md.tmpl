@@ -1,0 +1,206 @@
+# {{.project_name}}
+
+[![DAB Template](https://img.shields.io/badge/Databricks_Asset_Bundle_Template-Pipeline-blue)](https://github.com/procter-gamble/de-cf-databricks-pipeline-template)
+<!--find/replace <REPO_NAME> with your repository name and uncomment to fancy gh actions badge-->
+<!--
+[![Build, Analyze, Test, Publish](https://github.com/procter-gamble/<REPO_NAME>/actions/workflows/ci.yml/badge.svg)](https://github.com/procter-gamble/<REPO_NAME>/actions/workflows/ci.yml)
+-->
+<!--find/replace <REPO_NAME> with your repository name, <SONAR_TOKEN> with sonar token, and uncomment to fancy sonarqube badges-->
+<!--
+[![Quality Gate Status](https://sonarqubeenterprise.pgcloud.com/sonarqube/api/project_badges/measure?project=<REPO_NAME>&metric=alert_status&token=<SONAR_TOKEN>)](https://sonarqubeenterprise.pgcloud.com/sonarqube/dashboard?id=<REPO_NAME>)
+[![Maintainability Rating](https://sonarqubeenterprise.pgcloud.com/sonarqube/api/project_badges/measure?project=<REPO_NAME>&metric=sqale_rating&token=<SONAR_TOKEN>)](https://sonarqubeenterprise.pgcloud.com/sonarqube/dashboard?id=<REPO_NAME>)
+[![Coverage](https://sonarqubeenterprise.pgcloud.com/sonarqube/api/project_badges/measure?project=<REPO_NAME>&metric=coverage&token=<SONAR_TOKEN>)](https://sonarqubeenterprise.pgcloud.com/sonarqube/dashboard?id=<REPO_NAME>)
+-->
+<!--find/replace <REPO_NAME> with your repository name and uncomment to fancy snyk badge-->
+<!--
+[![Known Vulnerabilities](https://snyk.io/test/github/procter-gamble/<REPO_NAME>/badge.svg)](https://snyk.io/test/github/procter-gamble/<REPO_NAME>)
+-->
+
+
+## Pipeline Documentation
+   - [Technical](docs/technical.md)
+   - [Operations](docs/operations.md)
+   - [Governance](docs/governance.md)
+   - [Release Notes](docs/release-notes.md)
+
+## Getting started
+{{ if eq .developer_workflow "vscode-python" }}
+1. To develop this pipeline, choose _one_ of the following options to configure your development environment 
+   - Dev container
+      - Once per host os / developer machine
+         - Install WSL (The best & most comprehensive way to do this on a P&G machine is to use [this](https://github.com/procter-gamble/de-cf-wsl-setup-scripts) script)
+         - [Authenticate to git in WSL](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) (shared between wsl & containers via bind mount)
+         - Ensure ~/.databrickscfg exists .  (this allows you to share your databricks config with wsl and between containers via bind mount)
+         ```
+         touch ~/.databrickscfg
+         ``` 
+         - Ensure ~/.config/pypoetry exists.  (this allows you to share your poetry config with wsl and between containers via bind mount)
+         ```
+         mkdir ~/.config/pypoetry
+         ```
+         - Install VsCode & Dev Containers Extension `ms-vscode-remote.remote-containers` (other extensions will be installed in the devcontainer automatically)
+      - Each time you open your dev environment
+         - Open this pipeline folder with vscode.  When prompted, re-open the project in a devcontainer.  The devcontainer will include python, databricks cli, poetry etc.
+         - Once the container starts, it will output additional steps to authenticate in the console.  These only need to be done once and when tokens expire:
+            Authenticate Poetry to JFrog with:
+            ```
+            poetry config http-basic.pg_jfrog <username> <token>
+            ```
+            Install dependencies with:
+            ```
+            poetry install
+            ```
+            Authenticate to Databricks with:
+            ```
+            az login
+            ```
+            Setup pre-commit code checks with:
+            ```
+            poetry run pre-commit install
+            ```
+   - Local/Host OS (Windows):
+      - Python
+      - Poetry
+         ```powershell
+         PS > (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+         ```
+      - VsCode (Install to windows, optionally install wsl extension)
+      - VsCode Extensions (* Necassary)
+         - Databricks* - `databricks.databricks`
+         - Python* - `ms-python.python`
+         - Python Environment Manager* - `donjayamanne.python-environment-manager`
+         - SQLTools - `mtxr.sqltools`
+         - Databricks Driver for SQLTools - `databricks.sqltools-databricks-driver`
+         - YAML - `redhat.vscode-yaml`
+      - Install the Databricks CLI from https://docs.databricks.com/dev-tools/cli/databricks-cli.html
+      - Authenticate databricks cli to your Databricks workspace (once per user/per machine)
+         ```
+         az login
+         ```
+         This will create ~/.databrickscfg
+      - Install & configure Dependencies
+         - configure poetry to use a local .venv folder (devcontainer setup handles this automatically)
+         `poetry config virtualenvs.in-project true`
+         - configure poetry authentication for P&G JFrog [Get JFrog Access](https://pgone.sharepoint.com/sites/TechnicalITDocumentation/Shared%20Documents/devdocs/cicd/jfrog/how-to/get_jfrog_access/)
+         `poetry config http-basic.pg_jfrog "<your jfrog username>" <your jfrog token>`
+         - configure poetry certificate for P&G Composite Pipelines feed (devcontainer setup handles this automatically)
+         `poetry config certificates.pg_composite_pipelines.cert </path_to_certs/PG.pem>`
+         - configure a cluster for tests.  You will need to look up your cluster id in databricks.
+         `export DATABRICKS_CLUSTER_ID=<your cluster id>`
+   
+4. Develop your etl & tests (.py) and ddl (.sql)
+   - Add configuration to `{{.project_name}}/{{.schema_name}}/config/*.yaml` and tests/config/test.yaml for any values which change per environment or infrastructure.
+   - Add any secrets you need to access to your yaml config using the form {{`{{secrets/scope-name/key-name}}`}} for your values and they will be resolved using dbutils
+   - Use the databricks extension to start a cluster and ensure databricks connect is enabled
+   - Add any package dependencies to pyproject.toml and execute `poetry install` if you haven't already
+   - Use the python environment manager extension to activate your poetry environment
+   - Develop pipeline code in `{{.project_name}}/{{.schema_name}}/etl/*.py` using "Run Local" on the .py file you're working on.  You may also "Run in Databricks" but you will lose local debugging ability.
+   - Define your workflow in `resources/*.yml`, be sure to set your `run_as` identity or bundle deployment will fail.  [databricks yaml reference](https://docs.databricks.com/en/dev-tools/bundles/settings.html)
+   - Run you tests using the vscode test runner or `poetry run pytest`
+   - Define your schema migrations in `{{.project_name}}/{{.schema_name}}/ddl/####-*.sql`. We recommend numbering them with left padded zeroes to define order.  Run your migrations `poetry run migrate`
+   - Run your workflow in databricks using 
+      ```bash
+      $ databricks bundle deploy
+      $ databricks bundle run`
+      ```
+{{ end }}
+{{ if eq .developer_workflow "ui-notebook" }}
+1. Clone this repository to a git folder in your workspace Create=>Git Folder, enter the https path to the repo
+
+2. Configure your all purpose compute cluster to dbr >= 15.4lts
+
+3. Install & configure Dependencies
+   Ensure your development all purpose cluster is configured with `PIP_EXTRA_INDEX_URL` Environment variable in the format: `https://<user>:<token>@png.jfrog.io/artifactory/api/pypi/pgg-python/simple/`
+   
+4. Develop your etl & tests (.py) and ddl (.sql)
+   - Add configuration to `{{.project_name}}/{{.schema_name}}/config/*.yaml` and tests/config/test.yaml for any values which change per environment or infrastructure.
+   - Add any secrets you need to access to your yaml config using the form {{`{{secrets/scope-name/key-name}}`}} for your values and they will be resolved using dbutils
+   - Add any package dependencies to your notebooks using `pip install` or us `libraries` in the task properties of your databricks yaml.
+   - Develop your notebooks in `{{.project_name}}/notebooks`
+   - Define your workflow in `resources/*.yml`, be sure to set your `run_as` identity or bundle deployment will fail.  [databricks yaml reference](https://docs.databricks.com/en/dev-tools/bundles/settings.html).  You may also use the web terminal and invoke `databricks bundle job generate --existing-job-id <your job id>`
+   - Define your schema migrations in `{{.project_name}}/{{.schema_name}}/ddl/####-*.sql`. We recommend numbering them with left padded zeroes to define order.  Run your migrations `poetry run migrate`
+   - Run your workflow in databricks using 
+      ```bash
+      $ databricks bundle deploy
+      $ databricks bundle run`
+      ```
+{{ end }}
+
+5. Deploy
+   - To deploy a non-production copy, type:
+      ```bash
+      $ databricks bundle deploy --target nonprod
+      ```
+
+   - To Deploy a production copy of this project, type:
+      ```
+      $ databricks bundle deploy --target prod
+      ```
+
+6. Configure CI/CD
+   - Add the following secrets to your github repo
+      - `JFROG_USER` P&G JFrog Username for downloading python libraries [Get JFrog Access](https://pgone.sharepoint.com/sites/TechnicalITDocumentation/Shared%20Documents/devdocs/cicd/jfrog/how-to/get_jfrog_access/)
+      - `JFROG_TOKEN` P&G JFrog Token for downloading python libraries
+      - `SNYK_TOKEN` token for snyk
+      - `SONAR_TOKEN` token to access P&G SonarQube
+      - `AZURE_TENANT_ID` the P&G Azure Tenant ID
+   - Add the following Variables to your github repo
+      - `SONAR_PROJECT_KEY` Project Key for SonarQube (You will need to create your project in SonarQube UI)
+      - `SONAR_HOST_URL` P&G SonarQube URL: https://sonarqubeenterprise.pgcloud.com/sonarqube
+   - For each of your deployment environments
+      - Secrets
+         - `AZURE_CLIENT_ID` - Client ID to your federated Azure SP
+      - Variables
+         - `WORKSPACE_CLUSTER_ID` - ID of cluster to use to execute schema migrations
+         - `WORKSPACE_URL` - URL of workspace to use for deployment
+
+## Documentation & References
+   - Databricks Asset Bundles (databricks.yaml, resources/*.yml) - https://docs.databricks.com/dev-tools/bundles/index.html
+   {{ if eq .developer_workflow "vscode-python" }}
+   - Databricks Connect (.databrickscfg) - https://docs.databricks.com/en/dev-tools/databricks-connect/python/index.html
+   - Poetry (pyproject.toml) - https://python-poetry.org/docs/configuration/
+   - PyTest (pytest.ini, tests/*) - https://docs.pytest.org/en/7.4.x/reference/customize.html
+   {{ end }}
+   - Configuration (config/*) - https://github.com/procter-gamble/de-cf-ps-configuration
+   - Migration (ddl/*.sql) - https://github.com/procter-gamble/de-cf-ps-migration
+   - CDL Publication - https://github.com/procter-gamble/de-cf-ps-cdl
+   - PySpark - https://spark.apache.org/docs/latest/api/python/index.html
+   - Chispa - https://github.com/MrPowers/chispa
+
+<!--
+This repo was initialized from a dab template located at https://github.com/procter-gamble/de-cf-databricks-template
+You can recreate it's initial state by creating a json file dab.json as
+{
+    "project_name": "{{.project_name}}",
+    "schema_name": "{{.schema_name}}",
+    "migrate": "{{.migrate}}",
+    "publish_type": "{{.publish_type}}",
+    "das_rls": "{{.das_rls}}",
+    "developer_workflow": "{{.developer_workflow}}",
+    "cicd_workflow": "{{.cicd_workflow}}",
+    "environments":"{{.environments}}",
+    "ado_variable_group_name":"{{.ado_variable_group_name}}",
+    "ado_pipeline_name":"{{.ado_pipeline_name}}",
+    "ado_environment_staging":"{{.ado_environment_staging}}",
+    "ado_environment_production":"{{.ado_environment_production}}",
+    "dev_workspace":"{{.dev_workspace}}",
+    "dev_catalog":"{{.dev_catalog}}",
+    "dev_service_principal_name":"{{.dev_service_principal_name}}",
+    "dev_secret_scope":"{{.dev_secret_scope}}",
+    "dev_cluster_policy_name": "{{.dev_cluster_policy_name}}",
+    "dev_instance_pool_name": "{{.dev_instance_pool_name}}",
+    "uat_workspace":"{{.uat_workspace}}",
+    "uat_catalog":"{{.uat_catalog}}",
+    "uat_service_principal_name":"{{.uat_service_principal_name}}",
+    "uat_secret_scope":"{{.uat_secret_scope}}",
+    "uat_cluster_policy_name": "{{.uat_cluster_policy_name}}",
+    "uat_instance_pool_name": "{{.uat_instance_pool_name}}",
+    "prod_workspace":"{{.prod_workspace}}",
+    "prod_catalog":"{{.prod_catalog}}",
+    "prod_service_principal_name":"{{.prod_service_principal_name}}",
+    "prod_secret_scope":"{{.prod_secret_scope}}",
+    "prod_cluster_policy_name": "{{.prod_cluster_policy_name}}",
+    "prod_instance_pool_name": "{{.prod_instance_pool_name}}"
+}
+and execute databricks bundle init https://github.com/procter-gamble/de-cf-databricks-template --template-dir dab --config-file=dab.json
+-->

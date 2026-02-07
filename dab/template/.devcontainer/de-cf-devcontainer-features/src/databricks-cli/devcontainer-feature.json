@@ -1,0 +1,19 @@
+{
+  "id": "databricks-cli",
+  "version": "0.0.1",
+  "name": "Databricks CLI",
+  "documentationURL": "https://github.com/devcontainers/features/tree/main/src/azure-cli",
+  "description": "Installs the Azure CLI along with needed dependencies. Useful for base Dockerfiles that often are missing required install dependencies like gpg.",
+  "options": {
+    
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+      ]
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ]
+}

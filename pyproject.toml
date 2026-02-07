@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "da-dp-pda-fftp01-databricks"
+version = "0.1.0"
+packages = [
+    { include = "tp_dp_ff_pipelines/notebooks/src" }
+]
+description = "A Databricks pipeline project utilizing Python and Jupyter Notebooks with Poetry for dependency management."
+authors = ["chandran.gc@pg.com"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# Add your project dependencies here, for example:
+# pandas = "^1.3.0"
+# numpy = "^1.21.0"
+
+[poetry.group.dev.dependencies]
+pytest = "^6.2.4"
+# Add any development dependencies here, for example:
+# black = "^21.5b1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

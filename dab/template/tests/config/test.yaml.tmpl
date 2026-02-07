@@ -1,0 +1,23 @@
+---
+catalog-name: cdl_ps_dev
+schema-name: {{.schema_name}}
+tenant-id: 3596192b-fdf5-4e2c-a6fa-acb706c963d8 #P&G Azure Tenant
+#foo-secret: {{`{{secret/scope/key}}`}} # You can specify secrets which need to be resolved by dbutils
+{{- if ne .publish_type "no" }}
+cdl-metadata:
+  logical-layer-app-name: {{.project_name}}
+  data-layer-app-name: {{.project_name}} {{.schema_name}}
+{{end}}
+storage:
+  account-name: source_storage_name
+  container-name: {{.project_name}}
+{{- if ne .publish_type "no" }}
+tables:
+- logical-name: {{.schema_name}}_tablename
+  destination-path: {{.schema_name}}_tablename
+  unity-catalog-table-name: "carrier"
+  data-signal-keys: [ "super-fast-carrier", ]  # it can be either key or string
+  part-definition: "business_unit/load_date"
+  data-type-code: "faaaast"
+  secure-group-key: 0
+{{end}}

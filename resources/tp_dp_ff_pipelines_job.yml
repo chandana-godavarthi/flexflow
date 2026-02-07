@@ -1,0 +1,4939 @@
+# yaml-language-server: $schema=../bundle_config_schema.json
+# The initial job for tp_dp_ff_pipelines
+
+# Useful reference: https://docs.databricks.com/en/dev-tools/bundles/job-task-types.html
+
+resources:
+  jobs:   
+    Reference_Data_Cleanup:
+      name: Reference_Data_Cleanup
+      tasks:
+        - task_key: Reference_Data_Cleanup
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_data_cleanup.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+      queue:
+        enabled: false
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Reference_Data_Cleanup_Trigger:
+      name: Reference_Data_Cleanup_Trigger
+      tasks:
+        - task_key: Reference_Data_Cleanup_Trigger
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_job_reference_data_cleanup.py
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 2
+      queue:
+        enabled: false
+
+    Tier2_ACN_Prod:
+      name: Tier2_ACN_Prod
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Publish
+          depends_on:
+            - task_key: Product_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_publication_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: Publish
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Purge:
+      name: Purge
+      tasks:
+        - task_key: purge
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/purge.py
+            parameters:
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""  
+        - name: FILE_NAME
+          default: Purge
+        - name: ENV
+          default: ${var.env}
+
+    Work_Folder_Cleanup:
+      name: Work_Folder_Cleanup
+      tasks:
+        - task_key: Work_Folder_Cleanup
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/work_folder_cleanup.py
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+
+    Materialised_Folder_Cleanup:
+      name: Materialised_Folder_Cleanup
+      tasks:
+        - task_key: Materialised_Folder_Cleanup
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/materialised_folder_cleanup.py
+            parameters:
+              - --retention_days
+              - "{{job.parameters.retention_days}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: retention_days
+          default: "" 
+    
+    Tier2_Four_Files_Contract:
+      name: Tier2_Four_Files_Contract
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Time
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Market
+            - task_key: Load_Product
+            - task_key: Load_Fact
+            - task_key: Load_Time
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+            - task_key: Time_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier2_Four_Files_Contract_Medium:
+      name: Tier2_Four_Files_Contract_Medium
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Time
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Market
+            - task_key: Load_Product
+            - task_key: Load_Fact
+            - task_key: Load_Time
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+            - task_key: Time_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D8ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier2_Four_Files_Contract_Large:
+      name: Tier2_Four_Files_Contract_Large
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Time
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Market
+            - task_key: Load_Product
+            - task_key: Load_Fact
+            - task_key: Load_Time
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_four_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+            - task_key: Time_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D16ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 12
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier2_Single_Files_Contract:
+      name: Tier2_Single_Files_Contract
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Product
+            - task_key: Load_Market
+            - task_key: Load_Fact
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Time_Transformation
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier2_Single_Files_Contract_Medium:
+      name: Tier2_Single_Files_Contract_Medium
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Product
+            - task_key: Load_Market
+            - task_key: Load_Fact
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Time_Transformation
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D8ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier2_Single_Files_Contract_Large:
+      name: Tier2_Single_Files_Contract_Large
+      timeout_seconds: 10800
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 9000
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+          job_cluster_key: Job_cluster
+        - task_key: Column_Mappings
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/column_mappings.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Market
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Load_Product
+          depends_on:
+            - task_key: Column_Mappings
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Product
+            - task_key: Load_Market
+            - task_key: Load_Fact
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Market_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_market_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Product_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_product_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Time_Transformation
+          depends_on:
+            - task_key: Tier_2_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_single_file_time_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Reference_Data_Validation
+          depends_on:
+            - task_key: Time_Transformation
+            - task_key: Market_Transformation
+            - task_key: Product_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_reference_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Fact_Transformation
+          depends_on:
+            - task_key: Tier_2_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fact_transformation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_FYI_Validation
+          depends_on:
+            - task_key: Fact_Transformation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Tier_2_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Tier_2_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t2_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_2_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D16ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 12
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    create_tables_in_production:
+      name: create_tables_in_production
+      tasks:
+        - task_key: create_tables
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/create_tables.py
+            parameters:
+              - --TABLES
+              - "{{job.parameters.TABLES}}"
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          job_cluster_key: Job_cluster
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: TABLES
+          default: ""
+
+    Tier1_Data_Processing:
+      name: Tier1_Data_Processing
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+        - task_key: Load_Market
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Measure
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_measure.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Product
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Time
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Time
+            - task_key: Load_Market
+            - task_key: Load_Measure
+            - task_key: Load_Fact
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Fact_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fact_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Market_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_market_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Product_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --ENV
+              - "{{job.parameters.ENV}}"
+
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Reference_Data_Validation
+          depends_on:
+            - task_key: Fact_Derivation
+            - task_key: Market_Derivation
+            - task_key: Product_Derivation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_data_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_FYI_Validation
+          depends_on:
+            - task_key: Tier_1_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier1_Reference_Vendor_Validation
+          depends_on:
+            - task_key: Tier_1_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_vendor_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Atomic_Measure_Calculations
+          depends_on:
+            - task_key: Tier1_Reference_Vendor_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_atomic_measure_calculations.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Generate_Fact_Image
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_generate_fact_image.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Publish_Run_Logs
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_publish_run_logs.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Generate_Fact_Image
+            - task_key: Publish_Run_Logs
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_1_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+        - task_key: Product_Assoc_Derivation
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_assoc_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 3
+          min_retry_interval_millis: 60000
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: ON_DEMAND_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier1_Data_Processing_Medium:
+      name: Tier1_Data_Processing_Medium
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+        - task_key: Load_Market
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Measure
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_measure.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Product
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Time
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Time
+            - task_key: Load_Market
+            - task_key: Load_Measure
+            - task_key: Load_Fact
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Fact_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fact_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Market_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_market_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Product_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --ENV
+              - "{{job.parameters.ENV}}"
+
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Reference_Data_Validation
+          depends_on:
+            - task_key: Fact_Derivation
+            - task_key: Market_Derivation
+            - task_key: Product_Derivation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_data_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_FYI_Validation
+          depends_on:
+            - task_key: Tier_1_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier1_Reference_Vendor_Validation
+          depends_on:
+            - task_key: Tier_1_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_vendor_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Atomic_Measure_Calculations
+          depends_on:
+            - task_key: Tier1_Reference_Vendor_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_atomic_measure_calculations.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Generate_Fact_Image
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_generate_fact_image.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Publish_Run_Logs
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_publish_run_logs.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Generate_Fact_Image
+            - task_key: Publish_Run_Logs
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_1_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+        - task_key: Product_Assoc_Derivation
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_assoc_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 3
+          min_retry_interval_millis: 60000
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: ON_DEMAND_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D8ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    Tier1_Data_Processing_Large:
+      name: Tier1_Data_Processing_Large
+      max_concurrent_runs: 100
+      tasks:
+        - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/unzip_files.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 900000
+        - task_key: Load_Market
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_market.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Measure
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_measure.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Product
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_product.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Fact
+          depends_on:
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_fact.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Load_Time
+          depends_on:
+            - task_key: MFT_Logic
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_load_time.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_File_Structure_Validation
+          depends_on:
+            - task_key: Load_Time
+            - task_key: Load_Market
+            - task_key: Load_Measure
+            - task_key: Load_Fact
+            - task_key: Load_Product
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_file_structure_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Fact_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fact_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Market_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_market_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Product_Derivation
+          depends_on:
+            - task_key: Tier_1_File_Structure_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --ENV
+              - "{{job.parameters.ENV}}"
+
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Reference_Data_Validation
+          depends_on:
+            - task_key: Fact_Derivation
+            - task_key: Market_Derivation
+            - task_key: Product_Derivation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_data_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_FYI_Validation
+          depends_on:
+            - task_key: Tier_1_Reference_Data_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_fyi_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier1_Reference_Vendor_Validation
+          depends_on:
+            - task_key: Tier_1_FYI_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_reference_vendor_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Atomic_Measure_Calculations
+          depends_on:
+            - task_key: Tier1_Reference_Vendor_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_atomic_measure_calculations.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Generate_Fact_Image
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_generate_fact_image.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Publish_Run_Logs
+          depends_on:
+            - task_key: Atomic_Measure_Calculations
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_publish_run_logs.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Pre_Business_Validation
+          depends_on:
+            - task_key: Generate_Fact_Image
+            - task_key: Publish_Run_Logs
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_dq_pre_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Tier_1_Business_Validation
+          depends_on:
+            - task_key: Pre_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_business_validation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: CDL_Publication
+          depends_on:
+            - task_key: Tier_1_Business_Validation
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/publication.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+        - task_key: Refresh_Metadata
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_metadata.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+              - --job_run_id
+              - "{{job.run_id}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 4
+          min_retry_interval_millis: 10000
+        - task_key: Product_Assoc_Derivation
+          depends_on:
+            - task_key: CDL_Publication
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/t1_product_assoc_derivation.py
+            parameters:
+              - --FILE_NAME
+              - "{{job.parameters.FILE_NAME}}"
+              - --CNTRT_ID
+              - "{{job.parameters.CNTRT_ID}}"
+              - --RUN_ID
+              - "{{job.parameters.RUN_ID}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+          max_retries: 3
+          min_retry_interval_millis: 60000
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: ON_DEMAND_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D16ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 12
+      queue:
+        enabled: true
+      parameters:
+        - name: FILE_NAME
+          default: ""
+        - name: RUN_ID
+          default: ""
+        - name: CNTRT_ID
+          default: ""
+        - name: ENV
+          default: ${var.env}
+
+    File_Watcher:
+      name: File_Watcher
+      email_notifications:
+        on_failure:
+          - gopi.c@ltimindtree.com
+      #   on_duration_warning_threshold_exceeded:
+      #     - Tushar.Dhayade@ltimindtree.com
+      timeout_seconds: 1800
+      max_concurrent_runs: 1
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 1500
+      trigger:
+        pause_status: UNPAUSED
+        file_arrival:
+          url: ${var.file_arrival_path}
+          min_time_between_triggers_seconds: 0
+          wait_after_last_change_seconds: 0
+      tasks:
+        - task_key: File_Watcher
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/file_watcher.py
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+    Process_Manager:
+      name: Process_Manager
+      email_notifications:
+        on_failure:
+          - gopi.c@ltimindtree.com
+      timeout_seconds: 900
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: Process_Manager
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/process_manager.py
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+
+    Refresh_Lightrefined_Objects_FifteenMin:
+      name: Refresh_Lightrefined_Objects_FifteenMin
+      schedule:
+        quartz_cron_expression: 2 9/15 * * * ?
+        timezone_id: UTC
+        pause_status: ${var.schedule_status}
+      tasks:
+        - task_key: Refresh_Lightrefined_Objects_FifteenMin
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_all_objects.py
+            parameters:
+              - --refresh_type
+              - "{{job.parameters.refresh_type}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: refresh_type
+          default: 15MINS
+
+
+    Refresh_Lightrefined_Objects_Adhoc:
+      name: Refresh_Lightrefined_Objects_Adhoc
+      tasks:
+        - task_key: Adhoc_Refresh
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_all_objects.py
+            parameters:
+              - --refresh_type
+              - "{{job.parameters.refresh_type}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: refresh_type
+          default: ADHOC
+
+    Refresh_Lightrefined_Objects_Hourly_Refresh:
+      name: Refresh_Lightrefined_Objects_Hourly_Refresh
+      trigger:
+        pause_status: ${var.schedule_status}
+        periodic:
+          interval: 1
+          unit: HOURS
+      tasks:
+        - task_key: Hourly_Refresh
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_all_objects.py
+            parameters:
+              - --refresh_type
+              - "{{job.parameters.refresh_type}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: refresh_type
+          default: 1HR
+
+    Refresh_Lightrefined_Objects_twice:
+      name: Refresh_Lightrefined_Objects_twice
+      schedule:
+        quartz_cron_expression: 10 1 0/12 * * ?
+        timezone_id: UTC
+        pause_status: ${var.schedule_status}
+      tasks:
+        - task_key: Refresh_Lightrefined_Objects_twice
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/refresh_objects_postgres.py
+            parameters:
+              - --refresh_type
+              - "{{job.parameters.refresh_type}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: refresh_type
+          default: twice
+
+    vacuum_weekly:
+      name: vacuum_weekly
+      schedule:
+        quartz_cron_expression: 1 59 23 ? * Fri
+        timezone_id: UTC
+        pause_status: ${var.schedule_status}
+      tasks:
+        - task_key: vacuum
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/vacuum.py
+            parameters:
+              - --frequency
+              - "{{job.parameters.frequency}}"
+              - --mode
+              - "{{job.parameters.mode}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: frequency
+          default: "WEEKLY"
+        - name: mode
+          default: "LITE"
+
+    vacuum_adhoc:
+      name: vacuum_adhoc
+      tasks:
+        - task_key: vacuum
+          spark_python_task:
+            python_file: ${workspace.file_path}/${bundle.name}/notebooks/src/vacuum.py
+            parameters:
+              - --frequency
+              - "{{job.parameters.frequency}}"
+              - --mode
+              - "{{job.parameters.mode}}"
+          job_cluster_key: Job_cluster
+          libraries:
+            - pypi:
+                package: openpyxl
+            - pypi:
+                package: xlsxwriter
+            - pypi:
+                package: pathvalidate
+      job_clusters:
+        - job_cluster_key: Job_cluster
+          new_cluster:
+            cluster_name: ""
+            spark_version: 16.4.x-scala2.12
+            azure_attributes:
+              first_on_demand: 1
+              availability: SPOT_WITH_FALLBACK_AZURE
+              spot_bid_max_price: -1
+            node_type_id: Standard_D4ds_v5
+            cluster_log_conf:
+              dbfs:
+                destination: dbfs:/flexflow-default-cluster-logs/
+            spark_env_vars:
+              MDM_INTEGRATION_LIB_APPLICATION_KEY: "{{secrets/KeyVault_Scope/flexflow-platform-mdm-client-secret}}"
+              SPECIAL_ID_JFROG_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflow\
+                cicd-jfrog-token}}"
+              CDL_FLEXFLOW_SKID_CLIENT_SECRET: "{{secrets/KeyVault_Scope/flexflow-platform-skid-client-secret}}"
+              MDM_LIB_CREATE_NEW_SPARK_SESSION: "FALSE"
+              PYSPARK_PYTHON: /databricks/python3/bin/python3
+              SPECIAL_ID_ADO_TOKEN: "{{secrets/KeyVault_Scope/flexflow-platform-cdlflexflowci\
+                cd-ado-token}}"
+              PIP_EXTRA_INDEX_URL: "{{secrets/KeyVault_Scope/flexflow-platform-pip-extra-inde\
+                x-url}}"
+              SKID_SERVICE_CERT: "{{secrets/KeyVault_Scope/flexflow-platform-skid-certificate}}"
+              ENVIRONMENT: ${bundle.target}
+            enable_elastic_disk: true
+            policy_id: ${var.cluster_policy_id}
+            data_security_mode: USER_ISOLATION
+            runtime_engine: STANDARD
+            kind: CLASSIC_PREVIEW
+            is_single_node: false
+            autoscale:
+              min_workers: 1
+              max_workers: 4
+      queue:
+        enabled: false
+      parameters:
+        - name: frequency
+          default: "WEEKLY"
+        - name: mode
+          default: "DRY RUN"

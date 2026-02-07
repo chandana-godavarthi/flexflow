@@ -1,0 +1,165 @@
+import unittest
+from unittest.mock import MagicMock, patch
+from src.tp_utils.common import tier1_time_map
+
+class TestTier1TimeMap(unittest.TestCase):
+
+    def setUp(self):
+        self.spark = MagicMock()
+        self.vendr_id = "V123"
+        self.catalog_name = "mock_catalog"
+        self.postgres_schema = "mock_schema"
+        self.ref_db_jdbc_url = "jdbc:mock"
+        self.ref_db_name = "mock_db"
+        self.ref_db_user = "user"
+        self.ref_db_pwd = "pwd"
+        self.run_id = "run_001"
+        self.raw_path = "raw_data"
+
+    @patch("src.tp_utils.common.get_logger")
+    @patch("src.tp_utils.common.read_query_from_postgres")
+    @patch("src.tp_utils.common.materialize")
+    def test_tier1_time_map_success(self, mock_materialize, mock_read_query, mock_get_logger):
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        mock_df_time_lkp = MagicMock()
+        mock_read_query.return_value = mock_df_time_lkp
+
+        mock_df_srce_mtime = MagicMock()
+        self.spark.read.parquet.return_value = mock_df_srce_mtime
+
+        mock_df_time_map = MagicMock()
+        self.spark.sql.return_value = mock_df_time_map
+
+        tier1_time_map(
+            self.vendr_id,
+            self.catalog_name,
+            self.postgres_schema,
+            self.spark,
+            self.ref_db_jdbc_url,
+            self.ref_db_name,
+            self.ref_db_user,
+            self.ref_db_pwd,
+            self.run_id,
+            self.raw_path
+        )
+
+        mock_logger.info.assert_any_call("[tier1_time_map] Function execution started.")
+        mock_logger.info.assert_any_call(f"[tier1_time_map] Constructed query: SELECT * FROM {self.postgres_schema}.mm_time_perd_id_lkp where vendr_id='{self.vendr_id}'")
+        mock_df_time_lkp.show.assert_called_once()
+        mock_df_srce_mtime.show.assert_called_once_with(5)
+        mock_df_time_map.show.assert_called_once()
+        mock_materialize.assert_called_once_with(mock_df_time_map, "Load_Time_df_time_map", self.run_id, self.raw_path)
+
+    @patch("src.tp_utils.common.get_logger")
+    @patch("src.tp_utils.common.read_query_from_postgres", side_effect=Exception("Database query failed"))
+    def test_tier1_time_map_query_failure(self, mock_read_query, mock_get_logger):
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        with self.assertRaises(Exception) as context:
+            tier1_time_map(
+                self.vendr_id,
+                self.catalog_name,
+                self.postgres_schema,
+                self.spark,
+                self.ref_db_jdbc_url,
+                self.ref_db_name,
+                self.ref_db_user,
+                self.ref_db_pwd,
+                self.run_id,
+                self.raw_path
+            )
+
+        mock_logger.info.assert_any_call("[tier1_time_map] Function execution started.")
+        self.assertIn("Database query failed", str(context.exception))
+
+    @patch("src.tp_utils.common.get_logger")
+    @patch("src.tp_utils.common.read_query_from_postgres")
+    def test_tier1_time_map_parquet_failure(self, mock_read_query, mock_get_logger):
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        mock_df_time_lkp = MagicMock()
+        mock_read_query.return_value = mock_df_time_lkp
+
+        self.spark.read.parquet.side_effect = Exception("Parquet read failed")
+
+        with self.assertRaises(Exception) as context:
+            tier1_time_map(
+                self.vendr_id,
+                self.catalog_name,
+                self.postgres_schema,
+                self.spark,
+                self.ref_db_jdbc_url,
+                self.ref_db_name,
+                self.ref_db_user,
+                self.ref_db_pwd,
+                self.run_id,
+                self.raw_path
+            )
+
+        self.assertIn("Parquet read failed", str(context.exception))
+
+    @patch("src.tp_utils.common.get_logger")
+    @patch("src.tp_utils.common.read_query_from_postgres")
+    def test_tier1_time_map_sql_failure(self, mock_read_query, mock_get_logger):
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        mock_df_time_lkp = MagicMock()
+        mock_read_query.return_value = mock_df_time_lkp
+
+        mock_df_srce_mtime = MagicMock()
+        self.spark.read.parquet.return_value = mock_df_srce_mtime
+
+        self.spark.sql.side_effect = Exception("SQL execution failed")
+
+        with self.assertRaises(Exception) as context:
+            tier1_time_map(
+                self.vendr_id,
+                self.catalog_name,
+                self.postgres_schema,
+                self.spark,
+                self.ref_db_jdbc_url,
+                self.ref_db_name,
+                self.ref_db_user,
+                self.ref_db_pwd,
+                self.run_id,
+                self.raw_path
+            )
+
+        self.assertIn("SQL execution failed", str(context.exception))
+
+    @patch("src.tp_utils.common.get_logger")
+    @patch("src.tp_utils.common.read_query_from_postgres")
+    @patch("src.tp_utils.common.materialize", side_effect=Exception("Materialize failed"))
+    def test_tier1_time_map_materialize_failure(self, mock_materialize, mock_read_query, mock_get_logger):
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+
+        mock_df_time_lkp = MagicMock()
+        mock_read_query.return_value = mock_df_time_lkp
+
+        mock_df_srce_mtime = MagicMock()
+        self.spark.read.parquet.return_value = mock_df_srce_mtime
+
+        mock_df_time_map = MagicMock()
+        self.spark.sql.return_value = mock_df_time_map
+
+        with self.assertRaises(Exception) as context:
+            tier1_time_map(
+                self.vendr_id,
+                self.catalog_name,
+                self.postgres_schema,
+                self.spark,
+                self.ref_db_jdbc_url,
+                self.ref_db_name,
+                self.ref_db_user,
+                self.ref_db_pwd,
+                self.run_id,
+                self.raw_path
+            )
+
+        self.assertIn("Materialize failed", str(context.exception))

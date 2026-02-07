@@ -1,0 +1,47 @@
+# Operations
+
+## Key Contacts
+* Product Owner:
+* Dev team(L3 support):
+
+## Azure Resources Used
+{{- if  (regexp "dev").MatchString .environments }}
+### Dev
+* Databricks workspace: `{{ .dev_workspace }}`
+* Azure Subscription: 
+* Azure Resource group: 
+* Azure storage account: 
+* Azure storage container: 
+{{- if ne .dev_service_principal_name ""}}
+* service principal: {{ .dev_service_principal_name }}
+{{- end}}
+{{- if ne .dev_secret_scope ""}}
+* Azure Key Vault: {{ .dev_secret_scope }}
+{{- end}}
+{{- end }}
+
+{{- if  (regexp "prod").MatchString .environments }}
+### Prod
+* Databricks workspace: `{{ .prod_workspace }}`
+* Azure Subscription: 
+* Azure Resource group: 
+* Azure storage account: 
+* Azure storage container: 
+{{- if ne .prod_service_principal_name ""}}
+* service principal: {{ .prod_service_principal_name }}
+{{- end}}
+{{- if ne .prod_secret_scope ""}}
+* Azure Key Vault: {{ .prod_secret_scope }}
+{{- end}}
+{{- end }}
+
+## Regularly Scheduled Maintenance
+### Changing passwords/tokens
+If the password/token expires, please create a new one and upload it in Azure KeyVault. 
+> Note that there are no pipeline-speciffic secrets for this application.
+
+## Common Problems & Solutions
+### Fail scenario
+After workflow failure an email is sent to the defined group(s). The list of emails addresses is set up in the databricks asset bundle [job definition](/resources/{{.project_name}}_job.yml) There is no need to remove any data before the restart. You can simply rerun the process from where it failed.
+
+For CDL publication issues contact DDAPI support (applies only to `publish_task` of the pipeline).

@@ -1,0 +1,22 @@
+parameters:
+  - name: environment
+    type: string
+  - name: azureSubscription
+    type: string
+  - name: clusterId
+    type: string
+
+steps:
+  - task: AzureCLI@2
+    displayName: "Migrate Schema"
+    env:
+      DATABRICKS_CLUSTER_ID: {{`${{ parameters.clusterId }}`}}
+      ENVIRONMENT: {{`${{ parameters.environment }}`}}
+    inputs:
+      azureSubscription: {{`${{ parameters.azureSubscription }}`}}
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      inlineScript: |
+        echo "migrating schema for {{`${{ parameters.environment }}`}}"
+        poetry run migrate

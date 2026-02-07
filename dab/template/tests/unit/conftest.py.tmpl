@@ -1,0 +1,28 @@
+from unittest.mock import MagicMock
+
+import pytest
+
+# from databricks.connect import DatabricksSession as SparkSession
+
+
+# @pytest.fixture(scope="session", autouse=True)
+# def local_spark():
+#    spark = SparkSession.builder.getOrCreate()
+#    yield spark
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_spark():
+    mock = MagicMock()
+    mock.write.return_value = mock
+    mock.write.option.return_value = mock
+    mock.read.return_value = mock
+    mock.read.option.return_value = mock
+    mock.table.return_value = mock
+    mock.format.return_value = mock
+    mock.option.return_value = mock
+    mock.mode.return_value = mock
+    mock.save.return_value = None
+    mock.sql.return_value = mock
+    mock.createDataFrame.return_value = mock
+    return mock

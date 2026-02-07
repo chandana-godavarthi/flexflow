@@ -1,0 +1,43 @@
+CREATE OR REPLACE TABLE {catalog_name}.gold_tp.tp_valdn_agg_fct (
+  run_id BIGINT,
+  srce_sys_id SMALLINT,
+  cntrt_id BIGINT,
+  mkt_skid BIGINT,
+  prod_skid BIGINT,
+  time_perd_id SMALLINT,
+  new_time_perd_ind CHAR(1),
+  sales_msu_qty DECIMAL(38,10),
+  sales_msu_qty_pp DECIMAL(38,10),
+  sales_msu_qty_ya DECIMAL(38,10),
+  sales_msu_qty_pd DECIMAL(38,10),
+  sales_mlc_amt DECIMAL(38,10),
+  sales_mlc_amt_pp DECIMAL(38,10),
+  sales_mlc_amt_ya DECIMAL(38,10),
+  sales_mlc_amt_pd DECIMAL(38,10),
+  share_su_pct DECIMAL(38,10),
+  share_su_pct_pd DECIMAL(38,10),
+  share_lc_pct DECIMAL(38,10),
+  share_lc_pct_pd DECIMAL(38,10),
+  ipp_su_pct DECIMAL(38,10),
+  iya_su_pct DECIMAL(38,10),
+  ipd_su_pct DECIMAL(38,10),
+  ipp_lc_pct DECIMAL(38,10),
+  iya_lc_pct DECIMAL(38,10),
+  ipd_lc_pct DECIMAL(38,10),
+  time_factr DECIMAL(38,10),
+  sales_musd_amt DECIMAL(38,10),
+  sales_musd_amt_pp DECIMAL(38,10),
+  sales_musd_amt_ya DECIMAL(38,10),
+  sales_musd_amt_pd DECIMAL(38,10),
+  time_factr_pp DECIMAL(38,10),
+  part_cntrt_id BIGINT,
+  secure_group_key BIGINT)
+USING delta
+PARTITIONED BY (part_cntrt_id)
+LOCATION 'abfss://tp-publish-data@{storage_name}.dfs.core.windows.net/TP_VALDN_AGG_FCT'
+TBLPROPERTIES (
+  'delta.enableDeletionVectors' = 'true',
+  'delta.feature.allowColumnDefaults' = 'supported',
+  'delta.feature.deletionVectors' = 'supported',
+  'delta.minReaderVersion' = '3',
+  'delta.minWriterVersion' = '7')

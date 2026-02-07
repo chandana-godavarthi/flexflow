@@ -1,0 +1,122 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+parameters:
+  - name: ForceFetchZeroGitversion
+    type: boolean
+    default: true
+{{- if eq .developer_workflow "vscode-python" }}
+  - name: SqlFluff
+    type: boolean
+    default: false
+  - name: PyTest
+    type: boolean
+    default: true
+  # - name: MyPy
+  #  type: boolean
+  #  default: false
+{{end}}
+variables:
+  - group: {{.ado_variable_group_name}}
+  - name: system.debug
+    value: false
+  - name: Agent.Source.Git.ShallowFetchDepth
+    value: 0
+  - name: extraProperties
+    value: "| sonar.branch.name=$(Build.SourceBranchName)"
+  - name: databricksCliVersion
+    value: 'v0.227.0'
+  - name: PyTestTargetClusterId
+    value: $(ClusterIDDev)
+  - name: PyTestTargetPat
+    value: $(ClusterIDDev)
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+    - repository: DA-PP-PDA-CICD-templates-pipeline
+      endpoint: procter-gamble
+      type: github
+      name: "procter-gamble/DA-PP-PDA-CICD-templates-pipeline"
+      ref: refs/heads/master
+
+stages:
+  - stage: BuildAndPublish
+    displayName: 'Build and publish artifact'
+    pool:
+      vmImage: ubuntu-latest
+    jobs:
+      - template: ./ado-templates/build-and-publish.yaml
+
+  - stage: Scanning
+    displayName: Scanning stage
+    jobs:
+      # - job: GitLeaks
+      #   displayName: 'GitLeaks - Scanning for secrets'
+      #   pool:
+      #     vmImage: ubuntu-latest
+      #   steps:
+      #     - checkout: self
+      #     - template: /src/common/GitLeaks.yml@DA-PP-PDA-CICD-templates-pipeline
+      #       parameters:
+      #         srcPath: ""
+      #         rulesetFile: default
+
+      - job: Snyk
+        displayName: 'Snyk - Scanning for vulnerabilities'
+        steps:
+          - checkout: self
+          - template: /src/common/Snyk-code.yml@DA-PP-PDA-CICD-templates-pipeline
+
+      - job: SonarQube
+        displayName: 'SonarQube - Static code analysis'
+        variables:
+          SONAR_SCANNER_OPTS: -Xmx4096m
+        steps:
+          - template: /src/common/SonarQube.yml@DA-PP-PDA-CICD-templates-pipeline
+            parameters:
+              ForceFetchZeroGitversion: {{`${{ parameters.ForceFetchZeroGitversion }}`}}
+              extraProperties: {{`${{ variables.extraProperties }}`}}
+{{- if eq .developer_workflow "vscode-python" }}
+  #- stage: MyPy
+  #  displayName: 'MyPy stage'
+  #  condition: eq('{{`${{ parameters.MyPy }}`}}', true)
+  #  jobs:
+  #    - template: ./ado-templates/mypy.yaml
+  #      parameters:
+  #        PythonVersion: "3.10"
+  - stage: SQLFluff
+    displayName: 'SQLFluff stage'
+    condition: eq('{{`${{ parameters.SqlFluff }}`}}', true)
+    jobs:
+    - template: ./ado-templates/sqlfluff.yaml
+      parameters:
+        JfrogUsername: $(jfrogUsername)
+        JfrogPassword: $(jfrogPassword)
+  - stage: PyTest
+    displayName: 'PyTest stage'
+    dependsOn: [BuildAndPublish, Scanning, SQLFluff]
+    condition: eq('{{`${{ parameters.PyTest }}`}}', true)
+    jobs:
+    - template: ./ado-templates/py-test.yaml
+      parameters:
+        DatabricksCliVersion: {{`${{ variables.databricksCliVersion }}`}}
+        DatabrickHost: {{.dev_workspace}}
+        DatabrickToken: {{`${{ variables.PyTestTargetPat }}`}}
+        JfrogUsername: $(jfrogUsername)
+        JfrogPassword: $(jfrogPassword)
+        PyTestTargetClusterId: {{`${{ variables.PyTestTargetClusterId }}`}}
+{{end}}

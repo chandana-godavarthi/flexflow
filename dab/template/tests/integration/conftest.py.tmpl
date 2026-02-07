@@ -1,0 +1,48 @@
+import pytest
+from databricks.connect import DatabricksSession
+from databricks.sdk.core import Config
+from pg_composite_pipelines_configuration.configuration import Configuration
+{{- if eq .migrate "yes"}}
+from pg_composite_pipelines_migration.migration import Migration
+{{- end }}
+from pyspark.dbutils import DBUtils
+
+# common fixtures for integration tests
+
+
+@pytest.fixture(scope="session", autouse=True)
+def config():
+    spark_config = Config(profile="DEFAULT")
+    spark = DatabricksSession.builder.sdkConfig(spark_config).getOrCreate()
+    dbutils = DBUtils(spark)
+    config = Configuration.load_for_environment("test", __file__, dbutils)
+    yield config
+
+
+@pytest.fixture(scope="session", autouse=True)
+def spark():
+    spark_config = Config(profile="DEFAULT")
+    spark = DatabricksSession.builder.sdkConfig(spark_config).getOrCreate()
+    yield spark
+
+
+@pytest.fixture(scope="session", autouse=True)
+def dbutils(spark):
+    # you may want to just use a magicmock, dbutils.fs especially doesn't realy work locally
+    yield DBUtils(spark)
+
+{{ if eq .migrate "yes"}}
+@pytest.fixture(scope="session", autouse=True)
+def schema(spark, config):
+    sa_name = config["storage"]["account-name"]
+    container_name = config["storage"]["container-name"]
+    location = f"abfss://{container_name}@{sa_name}.dfs.core.windows.net/tests"
+    schema_name = f"{config['catalog-name']}.{config['schema-name']}"
+    print(f"Test storage location: {location}")
+    schema = Migration.migrate_throwaway_schema(
+        "../../{{.project_name}}/{{.schema_name}}/ddl", schema_name, location, spark
+    )
+    print(f"Test schema: {schema}")
+    yield schema
+    Migration.dispose_throwaway_schema(schema, location, spark)
+{{ end -}}

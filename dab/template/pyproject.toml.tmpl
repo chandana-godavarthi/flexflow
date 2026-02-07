@@ -1,0 +1,91 @@
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "{{.project_name}}"
+version = "0"
+description = ""
+authors = [{name = "Brook Patten", email = "patten.bp@pg.com"}]
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.poetry]
+packages = [{ include = "{{.project_name}}" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+{{- if ne .publish_type "no"}}
+pg-de-cf-cdl = {version = "0.*", source = "pg_jfrog"}
+{{- end }}
+pg-de-cf-databricks-configuration = {version = "0.*", source = "pg_jfrog"}
+{{- if eq .migrate "yes"}}
+pg-de-cf-databricks-migration = {version = "0.*", source = "pg_jfrog"}
+{{- end }}
+databricks-connect = "15.4.*"
+quinn = "v0.10.2"
+mack = "v0.5.0"
+
+[tool.poetry.plugins."console_scripts"]
+etl = "{{.project_name}}.{{.schema_name}}.etl.etl:main"
+{{- if ne .publish_type "no"}}
+publish = "{{.project_name}}.{{.schema_name}}.etl.publish:main"
+{{- end }}
+{{- if eq .migrate "yes"}}
+migrate = "{{.project_name}}.migrate:migrate"
+demigrate = "{{.project_name}}.migrate:demigrate"
+{{- end }}
+
+[[tool.poetry.source]]
+name = "pg_jfrog"
+url = "https://png.jfrog.io/artifactory/api/pypi/pgg-python/simple"
+priority = "explicit"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+pytest-cov = "5.0.0"
+chispa = "^0.9.4"
+isort = "^5.13.2"
+black = "^24.3.0"
+sqlfluff = "^3.2.5"
+pre-commit = "^3.7.1"
+pylint = "^3.3.3"
+databricks-labs-pylint = "^0.5.0"
+
+[tool.sqlfluff.core]
+templater = "placeholder"
+dialect = "databricks"
+max_line_length = 150
+large_file_skip_byte_limit = 0
+
+[tool.sqlfluff.layout.type.comma]
+line_position = "leading"
+
+[tool.sqlfluff.rules.references.special_chars]
+quoted_identifiers_policy = "none"
+
+[tool.sqlfluff.rules.capitalization.keywords]
+capitalisation_policy = "lower"
+
+[tool.sqlfluff.rules.capitalization.identifiers]
+extended_capitalisation_policy = "snake"
+
+[tool.sqlfluff.rules.ambiguous.column_references]
+group_by_and_order_by_style = "explicit"
+
+[tool.sqlfluff.templater.placeholder]
+param_style = "dollar"
+
+[tool.isort]
+profile = "black"
+
+[tool.pylint]
+disable = [
+    "C0301", # line too long
+    "C0114", # missing-module-docstring
+    "C0116", # missing-function-docstring
+    "C0415", # import outside toplevel
+    "R0913", # too many arguments
+    "R0917", # too many positional arguments
+]
+load-plugins= "databricks.labs.pylint.all"

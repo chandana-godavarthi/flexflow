@@ -1,0 +1,11 @@
+# Databricks notebook source
+
+%sh pip install pg-de-cf-databricks-configuration 
+
+# COMMAND ----------
+
+from pg_composite_pipelines_configuration.configuration import Configuration
+
+config = Configuration.load_for_default_environment_notebook(dbutils)
+
+print(f"hello world {config['catalog-name']}.{config['schema-name']}")

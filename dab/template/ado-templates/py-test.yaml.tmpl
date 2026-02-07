@@ -1,0 +1,63 @@
+parameters:
+  - name: DatabricksCliVersion
+    type: string
+  - name: DatabrickHost
+    type: string
+  - name: DatabrickToken
+    type: string
+  - name: JfrogUsername
+    type: string
+  - name: JfrogPassword
+    type: string
+  - name: PyTestTargetClusterId
+    type: string
+
+jobs:
+- job: Pytest
+  displayName: Pytest - Running tests
+  steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: current
+        artifactName: DAB-$(Build.BuildId)
+        targetPath: $(System.DefaultWorkingDirectory)
+
+    - bash: |
+        unzip DAB-$(Build.BuildId).zip
+      displayName: "Unzip bundle"
+
+    - template: poetry.yml
+      parameters:
+        JfrogUsername: {{`${{ parameters.JfrogUsername }}`}}
+        JfrogPassword: {{`${{ parameters.JfrogPassword }}`}}
+
+    - script: |
+        poetry self add poetry-version-plugin
+        poetry install --with dev
+        poetry build
+      displayName: "Add Poetry Version Plugin"
+
+    - template: databricks-cli.yaml
+      parameters:
+        DatabricksCliVersion: {{`${{ parameters.DatabricksCliVersion }}`}}
+        DatabrickHost: {{`${{ parameters.DatabrickHost }}`}}
+        DatabrickToken: {{`${{ parameters.DatabrickToken }}`}}
+
+    - script: |
+        poetry run pytest --junitxml=testresults.xml --cov=./ --cov-report=xml:coverage.xml
+      displayName: "Run Tests with Coverage"
+      env:
+        DATABRICKS_CLUSTER_ID: {{`${{ parameters.PyTestTargetClusterId }}`}}
+
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/testresults*.xml'
+
+    - task: PublishCodeCoverageResults@2
+      condition: always()
+      inputs:
+        summaryFileLocation: coverage.xml

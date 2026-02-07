@@ -1,0 +1,37 @@
+import pytest
+from chispa.column_comparer import assert_column_equality
+{{if eq .migrate "yes"}}
+from pg_composite_pipelines_migration.migration import Migration
+{{end}}
+
+from {{.project_name}}.{{.schema_name}}.etl.etl import *
+
+
+{{ if eq .migrate "yes"}}
+@pytest.mark.integration
+def test_etl(config, spark, schema):
+    # for integration tests the fixtures above are provided to make things easier
+    # config: dict of test.yml configuration
+    # spark: databricks-connect spark context
+    # schema: a "throwaway" schema which has been created specifically for this test run.  A schema has been created
+    # and all migrations in */ddl have been run.  You can make any changes to this schema and data you wish in the context of the test
+    # and it will not effect other developers or nonprod/prod environments
+    # the throwaway schema is dropped and deleted when the test run is complete.
+
+    # make a df to ingest somehow
+    # ingest(spark,df,schema)
+    # chispa is provided to make df assertions easier
+    # assert_column_equality(df ...)
+    assert 1 == 1  # placeholder assertion just so tests pass to start
+{{ else}}
+@pytest.mark.integration
+def test_etl(config, spark):
+    # for integration tests the fixtures above are provided to make things easier
+    # config: dict of test.yml configuration
+    # spark: databricks-connect spark context
+    # make a df to ingest somehow
+    # ingest(spark,df,schema)
+    # chispa is provided to make df assertions easier
+    # assert_column_equality(df ...)
+    assert 1 == 1  # placeholder assertion just so tests pass to start
+{{ end}}

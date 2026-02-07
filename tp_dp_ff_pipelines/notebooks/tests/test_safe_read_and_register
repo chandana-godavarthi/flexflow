@@ -1,0 +1,41 @@
+import unittest
+from unittest.mock import MagicMock, patch
+from pyspark.sql.utils import AnalysisException
+# Adjust the import path based on your project structure
+from src.tp_utils.common import safe_read_and_register
+
+class TestSafeReadAndRegister(unittest.TestCase):
+
+    def setUp(self):
+        self.path = "/mnt/data/sample.parquet"
+        self.view_name = "sample_view"
+
+    def test_successful_read(self):
+        mock_spark = MagicMock()
+        mock_df = MagicMock()
+        mock_spark.read.parquet.return_value = mock_df
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            result = safe_read_and_register(mock_spark, self.path, self.view_name)
+
+        mock_spark.read.parquet.assert_called_once_with(self.path)
+        mock_logger.error.assert_not_called()
+        self.assertEqual(result, mock_df)
+
+    def test_read_failure_analysis_exception(self):
+        mock_spark = MagicMock()
+        mock_spark.read.parquet.side_effect = AnalysisException("Path not found")
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+            try:
+                result = safe_read_and_register(mock_spark, self.path, self.view_name)
+            except UnboundLocalError:
+                result = None  # df was never assigned due to exception
+
+        mock_logger.error.assert_called_once()
+        self.assertIsNone(result)

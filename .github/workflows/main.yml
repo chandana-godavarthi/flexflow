@@ -1,0 +1,46 @@
+name: Tradepanel deployment prod
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+ 
+  deploy:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prod' }}
+    name: Deploy Workflow Bundle
+    needs: []
+    
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - uses: databricks/setup-cli@main
+    
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    - run: |
+        echo "deploying to $TARGET"
+        databricks bundle deploy -t $TARGET
+      env:
+        # DATABRICKS_CLUSTER_ID: ${{vars.WORKSPACE_CLUSTER_ID}} # set this to override bundle cluster id
+        TARGET: ${{ github.ref_name == 'main' && 'prod' }}
+        DATABRICKS_HOST: ${{vars.WORKSPACE_URL_PROD}}
+      name: Deploy Workflow Bundle

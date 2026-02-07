@@ -1,0 +1,40 @@
+{
+    "http.proxyStrictSSL": false,
+    "python.analysis.stubPath": ".vscode",
+    "databricks.python.envFile": "${workspaceFolder}/.env",
+    "jupyter.interactiveWindow.cellMarker.codeRegex": "^# COMMAND ----------|^# Databricks notebook source|^(#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])",
+    "jupyter.interactiveWindow.cellMarker.default": "# COMMAND ----------",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/.venv"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.analysis.extraPaths": ["{{.project_name}}"],
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true,
+    "files.exclude": {
+        "**/*.egg-info": true,
+        "**/__pycache__": true,
+        ".pytest_cache": true,
+    },
+    "sqltools.connections": [
+        {
+            "connectionMethod": "VS Code Extension (beta)",
+            "catalog": "hive_metastore",
+            "previewLimit": 50,
+            "driver": "Databricks",
+            "path": "/sql/1.0/warehouses/6f96f238e03b8e06",
+            "name": "n101"
+        }
+    ],
+    "workbench.startupEditor": "readme",
+    "sqlfluff.executablePath": ".venv/bin/sqlfluff",
+    "python.analysis.autoFormatStrings": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "standard",
+    "python.languageServer": "Pylance",
+    //"editor.defaultFormatter": "ms-python.black-formatter"
+}

@@ -1,0 +1,175 @@
+name: Test Commit Checks
+
+on:
+  push:
+    branches:
+      - 'feat**'
+
+  workflow_dispatch:
+
+jobs:
+  version:
+    name: Version & Tag
+    runs-on: ubuntu-latest
+    outputs:
+      fullSemVer: ${{ steps.version.outputs.fullSemVer }}
+      majorMinorPatch: ${{ steps.version.outputs.majorMinorPatch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: gittools/actions/gitversion/setup@v1.1.1
+        name: Install GitVersion
+        with:
+          versionSpec: "5.x"
+      - name: Determine Version
+        id: version
+        uses: gittools/actions/gitversion/execute@v1.1.1
+      - uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ steps.version.outputs.fullSemVer }}
+          tag_exists_error: true
+      - uses: rickstaa/action-create-tag@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag: ${{ steps.version.outputs.majorMinorPatch }}
+          tag_exists_error: false
+
+  gitleaks:
+    name: Gitleaks (Secrets)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Gitleaks
+      uses: gitleaks/gitleaks-action@v2.3.7
+      env:
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE}}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  snyk:
+    name: Snyk (Security & Dependencies)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/python@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        command: code test
+    # - name: Run Snyk to check for vulnerabilities
+      # uses: snyk/actions/python@master
+      # env:
+        # SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # with:
+        # command: monitor
+  black:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Black and nbqa
+      run: |
+        pip install black nbqa
+        pip install black
+
+    - name: Run Black on Python files
+      run: black . --exclude __init__.py
+
+    - name: Run Black on Notebooks
+      run: nbqa black --check . --exclude *.py
+      
+  sqlfluff:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install SQLFluff and nbqa
+      run: |
+        pip install sqlfluff nbqa
+        pip install sqlfluff
+        pip install sqlfluff databricks-sql-connector
+        
+    - name: Lint Databricks Notebooks
+      run: sqlfluff lint --dialect sparksql
+      
+  test:
+    name: Test & SonarQube
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: 1
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_CLUSTER_ID: ${{ secrets.DATABRICKS_CLUSTER_ID }}
+    environment:
+      name: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - uses: databricks/setup-cli@main
+    - run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov
+        pip install coverage pytest
+        pip install pyspark
+        pip install psycopg2-binary
+        pip install pandas
+        pip install numpy
+        pip install IPython
+
+
+      name: 'Install dependencies'
+
+    - name: Run Pytest and generate coverage report
+      run: |
+        pytest --cov=common --cov-report=term --cov-report=xml:coverage.xml # Runs Pytest and generates a coverage report in XML format
+          
+    - name: OIDC Login to Azure
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        enable-AzPSSession: true
+        allow-no-subscriptions: true
+    
+    - uses: sonarsource/sonarqube-scan-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      with:
+        args: >
+          -Dsonar.projectKey=${{vars.SONAR_PROJECT_KEY}}
+          -Dsonar.python.coverage.reportPaths=coverage.xml
+          -Dsonar.python.version=3
+          -Dsonar.sources=tp_dp_ff_pipelines/notebooks/src/tp_utils
+          -Dsonar.tests=tp_dp_ff_pipelines/notebooks/src/tp_utils
+          -Dsonar.verbose=true
+          -Dsonar.projectVersion=${{ needs.version.outputs.majorMinorPatch }} 

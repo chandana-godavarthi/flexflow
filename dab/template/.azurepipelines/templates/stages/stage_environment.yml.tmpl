@@ -1,0 +1,23 @@
+parameters:
+  - name: stage_name
+    default: ""
+  - name: display_name
+    default: ""
+{{- if eq .developer_workflow "vscode-python"}}
+  - name: databricks_host
+    default: ""
+  - name: databricks_cluster
+    default: ""
+{{end}}
+stages:
+  - stage: {{`${{ parameters.stage_name }}`}}
+    dependsOn: stage_code_validation
+    displayName: {{`${{ parameters.display_name }}`}}
+    jobs:
+      - template: ../jobs/job_application_build.yml
+        {{- if eq .developer_workflow "vscode-python"}}
+        parameters:
+          databricks_host: {{`${{ parameters.databricks_host }}`}}
+          databricks_cluster: {{`${{ parameters.databricks_cluster }}`}}
+        {{end}}
+      - template: ../jobs/job_post_build.yml

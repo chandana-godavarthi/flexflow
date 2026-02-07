@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../bundle_config_schema.json
+
+# environment specific configurations for your bundle.
+# Useful reference: https://docs.databricks.com/en/dev-tools/bundles/variables.html
+
+variables:
+  secret_scope:
+    description: Databricks secret scope.
+    default: ""
+  run_as_sp:
+    description: SP to run jobs as.
+    default: ""
+  cluster_policy_id:
+    description: Cluster Policy ID
+    default: ""
+  catalog_name:
+    description: Catalog Name
+    default: ""
+  storage_name:
+    description: Storage Name
+    default: ""
+  file_arrival_path:
+    description: File Arrival folder
+    default: ""
+  env:
+    description: Working Environment
+    default: ""
+  schedule_status:
+    description: Scheduling Status
+    default: ""
+
+
+targets:
+  dev:
+    workspace:
+      host: https://adb-3597259230236866.6.azuredatabricks.net/?o=3597259230236866
+    variables:
+      secret_scope: KeyVault_Scope
+      catalog_name: cdl_tp_dev
+      storage_name: sa01flexflowtp01dev
+      env: dev
+      schedule_status: PAUSED
+      file_arrival_path: abfss://tp-source-data@sa01flexflowtp01dev.dfs.core.windows.net/IN/
+      run_as_sp:
+        lookup:
+          service_principal: az-sp-cdl-flexflow-tp-01-dev
+      cluster_policy_id: 001F722FC2323F06
+        # lookup:
+        #   cluster_policy: default-flexflow-job-cluster-policy
+    run_as:
+      service_principal_name: "${var.run_as_sp}"
+      # user_name: "chandran.gc@pg.com"
+    mode: development
+  prod:
+    workspace:
+      host: https://adb-2472717941295173.13.azuredatabricks.net/?o=2472717941295173
+      root_path: "/Workspace/tp_dp_ff_pipelines"
+    variables:
+      secret_scope: KeyVault_Scope
+      catalog_name: cdl_tp_prod
+      storage_name: sa01flexflowtp01prod
+      env: prod
+      schedule_status: UNPAUSED
+      file_arrival_path: abfss://tp-source-data@sa01flexflowtp01prod.dfs.core.windows.net/IN/
+      run_as_sp:
+        lookup:
+          service_principal: az-sp-cdl-flexflow-tp-01-prod
+      cluster_policy_id: 001136920FF19AED
+        # lookup:
+          # cluster_policy: default-flexflow-job-cluster-policy
+    run_as:
+      service_principal_name: "${var.run_as_sp}"
+      # user_name: "chandran.gc@pg.com"
+    mode: production

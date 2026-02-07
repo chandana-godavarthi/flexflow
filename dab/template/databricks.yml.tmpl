@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=bundle_config_schema.json
+# This is a Databricks asset bundle definition for {{.project_name}}.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+# Useful Reference: https://docs.databricks.com/en/dev-tools/bundles/settings.html
+
+# This specific file, databricks.yml should contain your "project level" details
+# /resources can contain a file for each databricks workflow/job you create, starting with {{.project_name}}_job.yml
+# /resources/environments should contain environment specifics in targets to configure your bundle & jobs for each environment it may be deployed in
+
+bundle:
+  name: {{.project_name}}
+
+{{- if eq .developer_workflow "vscode-python"}}
+artifacts:
+  default:
+    type: whl
+    build: poetry build
+    path: .
+sync:
+  exclude:
+    - "*"
+{{else}}
+# workspace:
+  # root_path: "/Workspace/{{.project_name}}"
+sync:
+  exclude:
+    - .vscode
+    - .devcontainer
+    - .pre-commit-config.yaml
+    {{- if eq .cicd_workflow "azure-devops-gitflow"}}
+    - .azurepipelines
+    {{- end}}
+    {{- if eq .cicd_workflow "azure-devops" }}
+    - azure-pipeline-ci.yml
+    - azure-pipeline-cd.yml
+    - ado-templates
+    {{end}}
+    {{- if eq .cicd_workflow "github" }}
+    - .github
+    {{end}}
+    - .gitignore
+    - .gitattributes
+    - LICENSE
+    - README.md
+    - doc
+    - scratch
+  include:
+    - {{.project_name}}
+{{end}}
+
+include:
+  - resources/*.yml
+targets:
+  {{- if  (regexp "dev").MatchString .environments }}
+  dev:
+    mode: development
+    default: true
+  {{- end}}
+  {{- if  (regexp "uat").MatchString .environments }}
+  uat:
+    mode: production
+  {{- end}}
+  {{- if  (regexp "prod").MatchString .environments }}
+  prod:
+    mode: production
+  {{- end}}

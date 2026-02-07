@@ -1,0 +1,22 @@
+parameters:
+  - name: PythonVersion
+    type: string
+
+jobs:
+  - job: MyPy
+    displayName: MyPy - Static type checking for Python
+    steps:
+      - checkout: self
+
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: ${{ parameters.PythonVersion}}
+          addToPath: true
+
+      - script: |
+          pip install mypy
+        displayName: "Install Mypy"
+
+      - script: |
+          mypy .
+        displayName: "Run Mypy"

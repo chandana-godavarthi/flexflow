@@ -1,0 +1,19 @@
+parameters:
+  - name: JfrogUsername
+    type: string
+  - name: JfrogPassword
+    type: string
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.10"
+      addToPath: true
+
+  - bash: |
+      python -m pip install -U pip
+      pip install poetry
+      poetry config http-basic.pg_jfrog "${{ parameters.JfrogUsername }}" "${{ parameters.JfrogPassword }}"
+      poetry install
+      poetry build
+    displayName: Install software dependencies

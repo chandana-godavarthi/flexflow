@@ -1,0 +1,17 @@
+parameters:
+  - name: DatabricksCliVersion
+    type: string
+  - name: DatabrickHost
+    type: string
+  - name: DatabrickToken
+    type: string
+
+steps:
+  - bash: |
+      echo "Installing Databricks CLI version: ${{ parameters.DatabricksCliVersion }}"
+      curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/${{ parameters.DatabricksCliVersion }}/install.sh | sh
+      databricks -v
+      echo [DEFAULT] > $HOME/.databrickscfg
+      echo host = ${{ parameters.DatabrickHost }} >> $HOME/.databrickscfg
+      echo token = ${{ parameters.DatabrickToken }} >> $HOME/.databrickscfg
+    displayName: "Install Databricks CLI"

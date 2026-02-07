@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../bundle_config_schema.json
+
+# environment specific configurations for your bundle.
+# Useful reference: https://docs.databricks.com/en/dev-tools/bundles/variables.html
+
+variables:
+  {{- if or (ne .dev_secret_scope "") (ne .uat_secret_scope "") (ne .prod_secret_scope "") }}
+  secret_scope:
+    description: Databricks secret scope.
+    default: ""
+  {{- end}}
+  {{- if or (ne .dev_service_principal_name "") (ne .uat_service_principal_name "") (ne .prod_service_principal_name "") }}
+  run_as_sp:
+    description: SP to run jobs as.
+    default: ""
+  {{- end}}
+  {{- if or (ne .dev_cluster_policy_name "") (ne .uat_cluster_policy_name "") (ne .prod_cluster_policy_name "") }}
+  cluster_policy_id:
+    description: Cluster Policy ID
+    default: ""
+  {{- end}}
+  {{- if or (ne .dev_instance_pool_name "") (ne .uat_instance_pool_name "") (ne .prod_instance_pool_name "") }}
+  instance_pool_id:
+    description: Instance Pool ID
+    default: ""
+  {{- end}}
+
+targets:
+  {{- if  (regexp "dev").MatchString .environments }}
+  dev:
+    workspace:
+      host: {{ .dev_workspace }}
+    variables:
+      {{- if ne .dev_secret_scope ""}}
+      secret_scope: {{ .dev_secret_scope }}
+      {{- end}}
+      {{- if ne .dev_service_principal_name ""}}
+      run_as_sp:
+        lookup:
+          service_principal: {{ .dev_service_principal_name }}
+      {{- end}}
+      {{- if ne .dev_cluster_policy_name ""}}
+      cluster_policy_id:
+        lookup:
+          cluster_policy: {{ .dev_cluster_policy_name }}
+      {{- end}}
+      {{- if ne .dev_instance_pool_name ""}}
+      instance_pool_id:
+        lookup:
+          instance_pool: {{ .dev_instance_pool_name }}
+      {{- end}}
+    {{- if ne .dev_service_principal_name ""}}
+    run_as:
+      service_principal_name: "${var.run_as_sp}"
+    {{- end}}
+  {{- else}}
+  {{- end}}
+  {{- if  (regexp "uat").MatchString .environments }}
+  uat:
+    workspace:
+      host: {{ .uat_workspace }}
+      root_path: "/Workspace/{{.project_name}}"
+    variables:
+      {{- if ne .uat_secret_scope ""}}
+      secret_scope: {{ .uat_secret_scope }}
+      {{- end}}
+      {{- if ne .uat_service_principal_name ""}}
+      run_as_sp:
+        lookup:
+          service_principal: {{ .uat_service_principal_name }}
+      {{- end}}
+      {{- if ne .uat_cluster_policy_name ""}}
+      cluster_policy_id:
+        lookup:
+          cluster_policy: {{ .uat_cluster_policy_name }}
+      {{- end}}
+      {{- if ne .uat_instance_pool_name ""}}
+      instance_pool_id:
+        lookup:
+          instance_pool: {{ .uat_instance_pool_name }}
+      {{- end}}
+    {{- if ne .uat_service_principal_name ""}}
+    run_as:
+      service_principal_name: "${var.run_as_sp}"
+    {{- end}}
+  {{- else}}
+  {{- end}}
+  {{- if  (regexp "prod").MatchString .environments }}
+    mode: production
+  prod:
+    workspace:
+      host: {{ .prod_workspace }}
+      root_path: "/Workspace/{{.project_name}}"
+    variables:
+      {{- if ne .prod_secret_scope ""}}
+      secret_scope: {{ .prod_secret_scope }}
+      {{- end}}
+      {{- if ne .prod_service_principal_name ""}}
+      run_as_sp:
+        lookup:
+          service_principal: {{ .prod_service_principal_name }}
+      {{- end}}
+      {{- if ne .prod_cluster_policy_name ""}}
+      cluster_policy_id:
+        lookup:
+          cluster_policy: {{ .prod_cluster_policy_name }}
+      {{- end}}
+      {{- if ne .prod_instance_pool_name ""}}
+      instance_pool_id:
+        lookup:
+          instance_pool: {{ .prod_instance_pool_name }}
+      {{- end}}
+    {{- if ne .prod_service_principal_name ""}}
+    run_as:
+      service_principal_name: "${var.run_as_sp}"
+    {{- end}}
+    mode: production
+  {{- else}}
+  {{- end }}

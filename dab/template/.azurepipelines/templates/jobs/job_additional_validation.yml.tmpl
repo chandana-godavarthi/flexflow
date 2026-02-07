@@ -1,0 +1,48 @@
+jobs:
+  - job: job_additional_validation
+    displayName: "Agent job - MyPy, SQLFluff"
+    steps:
+      - template: ../tasks/task_keyvault_secrets.yml
+      - task: UsePythonVersion@0
+        displayName: "Task - Set Python version"
+        inputs:
+          versionSpec: $(default_python_version)
+          addToPath: true
+      - task: PowerShell@2
+        name: task_install_additional_tools
+        displayName: "Task - Install tools"
+        inputs:
+          pwsh: true
+          targetType: "inline"
+          script: |
+            python -m venv .venv
+            & "$(System.DefaultWorkingDirectory)/.venv/bin/Activate.ps1"
+            {{- if eq .developer_workflow "vscode-python"}}
+            pip install mypy
+            {{- end}}
+            pip install poetry
+            poetry config http-basic.pg_jfrog "$(jFrogUsername)" "$(jFrogToken)" # You must store username and secret in Azure Library or KeyVault
+            poetry install
+            {{- if eq .developer_workflow "vscode-python"}}
+            poetry build
+            {{- end}}
+      - task: PowerShell@2
+        name: task_run_sqlfluff
+        displayName: "Task - Run SQLFluff"
+        inputs:
+          pwsh: true
+          targetType: "inline"
+          script: |
+            & "$(System.DefaultWorkingDirectory)/.venv/bin/Activate.ps1"
+            poetry run sqlfluff lint
+{{- if eq .developer_workflow "vscode-python"}}
+      - task: PowerShell@2
+        name: task_run_mypy
+        displayName: "Task - Run MyPy"
+        inputs:
+          pwsh: true
+          targetType: "inline"
+          script: |
+            & "$(System.DefaultWorkingDirectory)/.venv/bin/Activate.ps1"
+            mypy . --explicit-package-bases --ignore-missing-imports --install-types --non-interactive
+{{- end}}

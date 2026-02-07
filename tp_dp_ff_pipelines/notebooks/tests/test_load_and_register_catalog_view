@@ -1,0 +1,58 @@
+import unittest
+from unittest.mock import MagicMock, patch
+
+# Adjust the import path based on your project structure
+from src.tp_utils.common import load_and_register_catalog_view
+
+class TestLoadAndRegisterCatalogView(unittest.TestCase):
+
+    def setUp(self):
+        self.query_template = "SELECT * FROM some_table WHERE id = :id"
+        self.view_name = "test_view"
+        self.params = {"id": 123}
+
+    def test_load_with_params(self):
+        mock_spark = MagicMock()
+        mock_df = MagicMock()
+        mock_spark.sql.return_value = mock_df
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            result = load_and_register_catalog_view(mock_spark, self.query_template, self.view_name, self.params)
+
+        mock_spark.sql.assert_called_once_with(self.query_template, self.params)
+        mock_logger.error.assert_not_called()
+        self.assertEqual(result, mock_df)
+
+    def test_load_without_params(self):
+        mock_spark = MagicMock()
+        mock_df = MagicMock()
+        mock_spark.sql.return_value = mock_df
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            result = load_and_register_catalog_view(mock_spark, self.query_template, self.view_name, None)
+
+        mock_spark.sql.assert_called_once_with(self.query_template)
+        mock_logger.error.assert_not_called()
+        self.assertEqual(result, mock_df)
+
+    def test_sql_execution_failure(self):
+        mock_spark = MagicMock()
+        mock_spark.sql.side_effect = Exception("SQL failed")
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger:
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            try:
+                result = load_and_register_catalog_view(mock_spark, self.query_template, self.view_name, self.params)
+            except UnboundLocalError:
+                result = None  # df was never assigned due to exception
+
+        mock_logger.error.assert_called_once()
+        self.assertIsNone(result)

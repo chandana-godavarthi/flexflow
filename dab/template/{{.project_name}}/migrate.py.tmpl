@@ -1,0 +1,54 @@
+import logging
+
+from pg_composite_pipelines_configuration.configuration import Configuration
+from pg_composite_pipelines_migration.migration import Migration
+
+from {{.project_name}}.common import get_dbutils
+
+
+def migrate():
+    # bump log level up to info to improve CI/CD output
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+
+    dbutils = get_dbutils()
+    config = Configuration.load_for_default_environment(__file__, dbutils)
+    schema = f"{config['catalog-name']}.{config['schema-name']}"
+    {{- if eq .das_rls "yes" }}
+    view_schema = f"{config['catalog-name']}.{config['rls-schema-name']}"
+    {{- end}}
+    storage_location = f"abfss://{config['storage']['container-name']}@{config['storage']['account-name']}.dfs.core.windows.net"
+    {{- if eq .das_rls "yes" }}
+    # migrate tables
+    Migration.migrate(
+        "{{.project_name}}/{{.schema_name}}_highly_restricted/ddl",
+        schema,
+        storage_location
+    )
+    # migrate rls views
+    Migration.migrate(
+        "{{.project_name}}/{{.schema_name}}/ddl",
+        view_schema,
+        storage_location,
+        schema_info="view_schema_info",
+        hrschema=schema
+    )
+    {{- else }}
+    Migration.migrate(
+        "{{.project_name}}/{{.schema_name}}/ddl",
+        schema,
+        storage_location
+    )
+    {{- end}}
+
+
+def demigrate():
+    # this method will convert an existing schema into .sql migration files
+    dbutils = get_dbutils()
+    config = Configuration.load_for_default_environment(__file__, dbutils)
+    schema = f"{config['catalog-name']}.{config['schema-name']}"
+    Migration.demigrate_to_sql_files(f"{schema}.*", "{{.project_name}}")
+
+
+if __name__ == "__main__":
+    migrate()

@@ -1,0 +1,106 @@
+from unittest.mock import MagicMock, patch
+import pytest
+from src.tp_utils.common import time_perd_class_codes  # ✅ Ensure this path is correct in your project
+
+def test_time_perd_class_codes_happy_path():
+    mock_spark = MagicMock()
+    mock_df_cntrt_lkp = MagicMock()
+    mock_df_cntrt_lkp.collect.return_value = [MagicMock(time_perd_type_code="TP01")]
+    mock_sql_result = MagicMock()
+    mock_sql_result.collect.return_value = [["CLASS01"]]
+    mock_spark.sql.return_value = mock_sql_result
+
+    with patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df_cntrt_lkp):
+        result = time_perd_class_codes(
+            cntrt_id=123,
+            spark=mock_spark,
+            ref_db_jdbc_url="jdbc:postgresql://localhost:5432",
+            ref_db_name="testdb",
+            ref_db_user="testuser",
+            ref_db_pwd="testpwd",
+            catalog_name="mycatalog",
+            postgres_schema="myschema"
+        )
+        assert result == "CLASS01"
+        assert mock_spark.sql.call_count >= 1
+        sql_calls = [call[0][0] for call in mock_spark.sql.call_args_list]
+        assert any("time_perd_class_code" in query and "TP01" in query for query in sql_calls)
+
+def test_time_perd_class_codes_different_type_code():
+    mock_spark = MagicMock()
+    mock_df_cntrt_lkp = MagicMock()
+    mock_df_cntrt_lkp.collect.return_value = [MagicMock(time_perd_type_code="TP99")]
+    mock_sql_result = MagicMock()
+    mock_sql_result.collect.return_value = [["CLASS99"]]
+    mock_spark.sql.return_value = mock_sql_result
+
+    with patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df_cntrt_lkp):
+        result = time_perd_class_codes(
+            cntrt_id=456,
+            spark=mock_spark,
+            ref_db_jdbc_url="jdbc:postgresql://localhost:5432",
+            ref_db_name="testdb",
+            ref_db_user="testuser",
+            ref_db_pwd="testpwd",
+            catalog_name="mycatalog",
+            postgres_schema="myschema"
+        )
+        assert result == "CLASS99"
+        assert mock_spark.sql.call_count >= 1
+        sql_calls = [call[0][0] for call in mock_spark.sql.call_args_list]
+        assert any("time_perd_class_code" in query and "TP99" in query for query in sql_calls)
+
+def test_time_perd_class_codes_empty_result():
+    mock_spark = MagicMock()
+    mock_df_cntrt_lkp = MagicMock()
+    mock_df_cntrt_lkp.collect.return_value = []
+
+    with patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df_cntrt_lkp):
+        with pytest.raises(IndexError):
+            time_perd_class_codes(
+                cntrt_id=789,
+                spark=mock_spark,
+                ref_db_jdbc_url="jdbc:postgresql://localhost:5432",
+                ref_db_name="testdb",
+                ref_db_user="testuser",
+                ref_db_pwd="testpwd",
+                catalog_name="mycatalog",
+                postgres_schema="myschema"
+            )
+
+def test_time_perd_class_codes_sql_returns_empty():
+    mock_spark = MagicMock()
+    mock_df_cntrt_lkp = MagicMock()
+    mock_df_cntrt_lkp.collect.return_value = [MagicMock(time_perd_type_code="TP01")]
+    mock_sql_result = MagicMock()
+    mock_sql_result.collect.return_value = []
+    mock_spark.sql.return_value = mock_sql_result
+
+    with patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df_cntrt_lkp):
+        with pytest.raises(IndexError):
+            time_perd_class_codes(
+                cntrt_id=123,
+                spark=mock_spark,
+                ref_db_jdbc_url="jdbc:postgresql://localhost:5432",
+                ref_db_name="testdb",
+                ref_db_user="testuser",
+                ref_db_pwd="testpwd",
+                catalog_name="mycatalog",
+                postgres_schema="myschema"
+            )
+
+def test_time_perd_class_codes_handles_exceptions():
+    mock_spark = MagicMock()
+
+    with patch("src.tp_utils.common.read_query_from_postgres", side_effect=Exception("DB error")):
+        with pytest.raises(Exception, match="DB error"):
+            time_perd_class_codes(
+                cntrt_id=123,
+                spark=mock_spark,
+                ref_db_jdbc_url="jdbc:postgresql://localhost:5432",
+                ref_db_name="testdb",
+                ref_db_user="testuser",
+                ref_db_pwd="testpwd",
+                catalog_name="mycatalog",
+                postgres_schema="myschema"
+            )

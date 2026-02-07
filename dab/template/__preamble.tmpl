@@ -1,0 +1,62 @@
+# Preamble
+
+# This file only template directives; it is skipped for the actual output.
+
+{{skip "__preamble"}}
+
+{{- if eq .migrate "no"}}
+  {{skip "{{.project_name}}/migrate.py"}}
+  {{skip "{{.project_name}}/{{.schema_name}}/ddl"}}
+  {{skip "resources/migrate_{{.project_name}}_schema.yml"}}
+  {{skip "{{.project_name}}/notebooks/migrate.py"}}
+{{end}}
+
+{{if eq .publish_type "no" }}
+  {{skip "{{.project_name}}/{{.schema_name}}/etl/publish.py"}}
+  {{skip "{{.project_name}}/notebooks/publish.py"}}
+{{end}}
+
+{{- if eq .developer_workflow "vscode-python" }}
+  {{skip "{{.project_name}}/notebooks"}}
+  {{skip "resources/migrate_{{.project_name}}_schema.yml"}}
+{{else}}
+  {{skip ".devcontainer"}}
+  {{skip "fixtures"}}
+  {{skip "scratch"}}
+  {{skip ".vscode"}}
+  {{skip ".pre-commit-config.yaml"}}
+  {{skip "pytest.ini"}}
+  {{skip "tests"}}
+  {{skip "{{.project_name}}/{{.schema_name}}/etl"}}
+  {{skip "{{.project_name}}/__init__.py"}}
+  {{skip "{{.project_name}}/common.py"}}
+  {{skip "{{.project_name}}/migrate.py"}}
+  {{skip "pyproject.toml"}}
+{{end}}
+{{- if ne .das_rls "yes" }}
+  {{skip "{{.project_name}}/{{.schema_name}}_highly_restricted"}}
+  {{skip "{{.project_name}}/{{.schema_name}}/ddl/0001-initial-rls-views.sql"}}
+{{else}}
+  {{skip "{{.project_name}}/{{.schema_name}}/ddl/0001-initial-schema.sql"}}
+{{end}}
+{{- if ne .cicd_workflow "github" }}
+  {{skip ".github"}}
+{{end}}
+{{if ne .cicd_workflow "azure-devops-gitflow"}}
+  {{skip ".azurepipelines"}}
+{{end}}
+{{if ne .cicd_workflow "azure-devops"}}
+  {{skip "./azure-pipeline-ci.yml"}}
+  {{skip "./azure-pipeline-cd.yml"}}
+  {{skip "ado-templates"}}
+{{end}}
+
+{{if eq .environments "prod" }}
+  {{skip "{{.project_name}}/config/dev.yaml"}}
+{{end}}
+{{if or (eq .environments "dev") (eq .environments "dev,prod") (eq .environments "prod")}}
+  {{skip "{{.project_name}}/config/uat.yaml"}}
+{{end}}
+{{if or (eq .environments "dev") (eq .environments "dev,uat")}}
+  {{skip "{{.project_name}}/config/prod.yaml"}}
+{{end}}

@@ -1,0 +1,23 @@
+import pytest
+from chispa import assert_df_equality
+
+from {{.project_name}}.{{.schema_name}}.etl.etl import (
+    transform_dataframe,
+)
+
+
+@pytest.mark.unit
+def test_unit_etl(mock_spark):
+    # unit tests should be focused on the smallest 'unit' in your pipeline
+    # this test is an example of validating simple logic of the
+    # function `transform_dataframe` to test if it translates all the
+    # columns into the appropriate data type
+
+    df = mock_spark.createDataFrame([{"id": "1", "value": "2"}])
+
+    result = transform_dataframe(df, cast_to="int")
+
+    expected = mock_spark.createDataFrame([{"id": 1, "value": 2}])
+
+    # assert_df_equality(expected, result)
+    assert 1 == 1

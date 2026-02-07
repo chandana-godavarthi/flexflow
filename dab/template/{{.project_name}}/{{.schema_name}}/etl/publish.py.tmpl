@@ -1,0 +1,102 @@
+import json
+{{- if eq .das_rls "yes" }}
+from functools import partial
+
+from pyspark.sql.functions import regexp_replace, col
+{{- end }}
+
+from pg_composite_pipelines_cdl.main_meta_client import MetaPSClient
+from pg_composite_pipelines_configuration.configuration import Configuration
+
+from {{.project_name}}.common import get_dbutils, get_spark
+
+
+def publish(config):
+    """Publish to CDL medatada."""
+    # initial config
+    print(f"{json.dumps(config, indent=2)}")
+    meta_client = MetaPSClient.configure(config).get_client()
+
+    # todo: in case you need a SP auth, different than the meta-client SP, comment out the code below
+
+    # meta_client.storage.credential = SPAuthClient(
+    #    config["tenant-id"],
+    #    config["storage"]["sp-app-id"],
+    #    config["storage"]["sp-secret"],
+    # ).get_credential()
+
+    tables = config["tables"]
+    {{- if and (or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi")) (eq .das_rls "yes") }}
+    spark = get_spark()
+    rls_map = get_rls_map(spark, config=config)
+    {{- end}}
+    for t in tables:
+        (
+            meta_client.mode(publish_mode="update").publish_table(
+                logical_table_name=t["logical-name"],
+                {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+                physical_table_name=t["destination-path"],
+                {{- end }}
+                {{- if or (eq .publish_type "unity-catalog") (eq .publish_type "unity-catalog+ddapi") }}
+                unity_catalog_table_name=t["unity-catalog-table-name"].lower(),
+                unity_catalog_schema=config["schema-name"],
+                {{- end }}
+                data_signals=t["data-signal-keys"],
+                {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+                partition_definition_value=t["part-definition"],
+                {{- end }}
+                file_type_code="parquet",
+                data_type_code=t["data-type-code"],
+                data_provider_code=config["cdl-metadata"]["data-provider-code"],
+                {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+                {{- if eq .das_rls "yes" }}
+                dynamic_sgk_func=partial(assign_sgk, rls_map=rls_map),
+                {{- else }}
+                secure_group_key=t["secure-group-key"],
+                {{- end }}
+                {{- end }}
+                test_only=False,
+            )
+        )
+    meta_client.start_publishing()
+{{- if eq .das_rls "yes" }}
+
+
+def get_rls_map(spark, config):
+    catalog_name = config["catalog-name"]
+    schema_name = config["schema-name"]
+    sql_query = f"""
+    SELECT *
+    FROM {catalog_name}.{schema_name}.rls_ad_lkp"""
+    result_df = spark.sql(sql_query)
+    # Edit the column values to match the desired format
+    result_df = result_df.withColumn(
+        "permission_id", regexp_replace(col("permission_id"), "@", "/")
+    )
+    rls_map = {}
+    for r in result_df.select("permission_id", "SGK").collect():
+        row_dict = r.asDict()
+        rls_map.update({"/" + row_dict["permission_id"] + "/": row_dict["SGK"]})
+    return rls_map
+
+
+def assign_sgk(partition_name: str, rls_map: dict) -> int:
+    """
+    Assigns SGK to the partition based on the partition name
+    :param partition_name: name of the partition
+    :param rls_map: map of partition names to SGK
+    :param config: Configuration object
+    :return: SGK
+    """
+    return rls_map.get(partition_name, 0)
+{{- end}}
+
+
+def main():
+    dbutils = get_dbutils()
+    config = Configuration.load_for_default_environment(__file__, dbutils=dbutils)
+    publish(config)
+
+
+if __name__ == "__main__":
+    main()

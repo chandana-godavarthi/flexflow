@@ -1,0 +1,58 @@
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+    - pipeline: ado-ci
+      source: {{.ado_pipeline_name}}
+      trigger:
+        branches:
+          include:
+            - master
+            - develop
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - name: DatabricksCliVersion
+    value: 'v0.227.0'
+  - group: {{.ado_variable_group_name}}
+
+stages:
+  {{- if  (regexp "dev").MatchString .environments }}
+  - template: ./ado-templates/dab-deploy-to-env.yaml
+    parameters:
+      dbrToken: $(PatDev)
+      dbrHost: {{.dev_workspace}}
+      dbrCliVersion: {{`${{ variables.DatabricksCliVersion }}` }}
+      environment: dev
+      runAfterDeploy: true
+      clusterId: $(ClusterIDDev)
+      azureSubscription: {{.dev_service_principal_name}}
+      environmentObject: {{.ado_environment_staging}}
+  {{- end}}
+  {{- if  (regexp "uat").MatchString .environments }}
+  - template: ./ado-templates/dab-deploy-to-env.yaml
+    parameters:
+      dbrToken: $(PatUat)
+      dbrHost: {{.uat_workspace}}
+      dbrCliVersion: {{`${{ variables.DatabricksCliVersion }}` }}
+      environment: uat
+      runAfterDeploy: false
+      clusterId: $(ClusterIDUat)
+      azureSubscription: {{.uat_service_principal_name}}
+      environmentObject: {{.ado_environment_staging}}
+  {{- end}}
+  {{- if  (regexp "prod").MatchString .environments }}
+  - template: ./ado-templates/dab-deploy-to-env.yaml
+    parameters:
+      dbrToken: $(PatProd)
+      dbrHost: {{.prod_workspace}}
+      dbrCliVersion: {{`${{ variables.DatabricksCliVersion }}` }}
+      environment: prod
+      runAfterDeploy: false
+      clusterId: $(ClusterIDProd)
+      azureSubscription: {{.prod_service_principal_name}}
+      environmentObject: {{.ado_environment_production}}
+  {{end}}

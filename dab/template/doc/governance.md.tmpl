@@ -1,0 +1,76 @@
+# Governance
+
+## Data Quality Checks:
+
+Data quality is not currently implemented.
+
+#Data Loading:
+
+#Data Schema:
+
+## Unity catalog (if applicable)
+### Catalog
+{{- if  (regexp "dev").MatchString .environments }}
+* **{{.dev_catalog}}** - dev catalog
+{{- end }}
+{{- if  (regexp "prod").MatchString .environments }}
+* **{{.prod_catalog}}** - prod catalog
+{{- end }}
+
+### Schemas
+
+* **{{.schema_name}}** - <business use schema>
+
+{{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+## DDAPI
+{{- if  (regexp "prod").MatchString .environments }}
+### Prod
+* Logical layer application name: 
+* Data layer app name: 
+* CDL published dataset: 
+* Data signal keys: 
+* Partitioning field:
+{{- end }}
+
+{{- if  (regexp "dev").MatchString .environments }}
+### Breakfix
+* Logical layer application name:
+* Data layer app name:
+* CDL published dataset:
+* Data signal keys:
+* Partitioning field:
+{{- end }}
+{{- end }}
+
+{{- if eq .das_rls "yes" }}
+# Security and Access Controls:
+* if applicable, RLS
+* Each AD group has a Secure Group Key (SGK) assigned in the [Data Authorisation Service](https://app-data-auth-service-frontend-p101.azurewebsites.net/). <'How it's used in each platform'>
+{{- end}}
+
+# Monitoring and Alerts:
+Databricks workflow monitoring & alerting
+
+# Testing and Validation:
+
+The pipeline has been tested manually on dev Databricks and breakfix DDAPI. 
+* Unit tests 
+* integration tests
+
+
+# Deployment and CI/CD:
+
+### CI
+First block corresponds to the CI (Continuous Integration) and is executed on each **pull request** created on the `main` and `develop` branches. Steps:
+* **Test & SonarQube** - Runs unit and integration tests, executes SonarQube static code analisys for code quality verification
+* **Gitleaks** - detects hardcoded secrets like passwords, api keys, and tokens
+* **Snyk** - finds and automatically fixes vunerabilities in the code
+* **Black** - checks code formatting
+
+### CD
+Next two blocks correspond to the CD (Continuous Deployment) and are executed on each **push** to the `main` and `develop`. Depending on the branch, different configuration is used and the code is deployed to the corresponding environment: main to prod, develop to dev.
+  
+Only after all CI steps are succesfull the first deployment step is run, wnich is the `Migrate Schema`. It runs all queries related to Unity Catalog defined in [ddl directory](/{{.project_name}}/{{.schema_name}}/ddl) to set up the database on databricks.
+
+When the `Migrate schema` step is succesfull the last two steps are executed:
+* <if ddapi is applicable> `Deploy Workflow Bundle` - deploys the pipeline code as Databricks Asset Bundle, after this step is succesful the pipeline is available in databricks workflows page and scheduled according to the configuration so no further manual steps are needed

@@ -1,0 +1,45 @@
+# Continuous Delivery - DAB Production Deployment
+trigger: none
+pr: none
+resources:
+  pipelines:
+    - pipeline: databricks-ci
+      source: {{.ado_pipeline_name}}
+      tags:
+        - production
+      trigger:
+        enabled: true
+        stages:
+          - production
+variables:
+  - group: {{.ado_variable_group_name}}
+  - name: azure_subscription
+    value: {{.prod_service_principal_name}}
+  - name: keyvault_name
+    value: {{.prod_keyvault_name}}
+  - name: default_python_version
+    value: 3.11
+# Default pools where CI/CD tasks executes
+# Subnets must be whitelisted on KV side to get secrets for CI/CD
+pool: DA-VM-L-NonProd
+stages:
+  - stage: stage_application_approval
+    condition: always()
+    displayName: "Stage - Approval"
+    jobs:
+      - template: ../templates/jobs/job_deployment_approval.yml
+        parameters:
+          environment: databricks-deployment-prod
+  - stage: stage_dev_application_deployment
+    dependsOn: stage_application_approval
+    displayName: "Stage - Deployment"
+    jobs:
+      - template: ../templates/jobs/job_deployment.yml
+        parameters:
+          environment: prod
+          project_id: $(System.TeamProjectId)
+          databricks_host: $(WorkspaceProdURL)
+          {{- if eq .migrate "yes"}}
+          databricks_cluster: $(ClusterIDProd)
+          {{- end}}
+          inegration_build_name: databricks-ci

@@ -1,0 +1,48 @@
+---
+catalog-name: {{.prod_catalog}}
+{{- if eq .das_rls "yes" }}
+schema-name: {{.schema_name}}_highly_restricted
+rls-schema-name: {{.schema_name}}
+{{- else}}
+schema-name: {{.schema_name}}
+{{- end}}
+{{- if ne .publish_type "no" }}
+tenant-id: 3596192b-fdf5-4e2c-a6fa-acb706c963d8 #P&G Azure Tenant
+cdl-metadata:
+  # metadata-api config
+  api-url: https://api.pgcloud.com/othersupportingdata/it/v1/metadata
+  #todo: replace with the proper azure key-vault and secret name
+  api-app-id: {{`'{{secrets/`}}{{.prod_secret_scope}}{{`/client-id-SP-cdl-turbine-frontend-meta-api-id}}'`}}
+  sp-app-id: {{`'{{secrets/`}}{{.prod_secret_scope}}/client-id-{{.prod_service_principal_name}}{{`}}'`}}
+  sp-secret: {{`'{{secrets/`}}{{.prod_secret_scope}}/client-secret-{{.prod_service_principal_name}}{{`}}'`}}
+  {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+  # integration-service configs
+  integration-api-url: https://func-uicaintsvc-p101.azurewebsites.net
+  #todo: replace with the proper azure key-vault and secret name
+  integration-api-app-id: {{`'{{secrets/`}}{{.prod_secret_scope}}{{`/client-id-AZ-App-Metadata-UnityCatalog-IntegrationService-Prod}}'`}}
+  # publisher configs
+  {{- end }}
+  logical-layer-app-name: {{.project_name}}
+  data-layer-app-name: {{.project_name}} {{.schema_name}}
+  data-provider-code: #todo: set the data provider code
+{{end}}
+storage:
+  account-name: source_storage_name
+  container-name: {{.project_name}}
+  {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+  # This credential is only necassary if you need to use a different credential for accessing storage
+  # sp-app-id: {{`'{{secrets/`}}{{.prod_secret_scope}}/client-id-{{.prod_service_principal_name}}{{`}}'`}}
+  # sp-secret: {{`'{{secrets/`}}{{.prod_secret_scope}}/client-secret-{{.prod_service_principal_name}}{{`}}'`}}
+  {{- end }}
+{{- if ne .publish_type "no" }}
+tables:
+- logical-name: {{.schema_name}}_tablename
+  destination-path: {{.schema_name}}_tablename
+  unity-catalog-table-name: "carrier"
+  data-signal-keys: [ "super-fast-carrier", ]  # it can be either key or string
+  data-type-code: "faaaast"
+  {{- if or (eq .publish_type "ddapi") (eq .publish_type "unity-catalog+ddapi") }}
+  secure-group-key: 0
+  part-definition: "business_unit/load_date"
+  {{- end }}
+{{end}}

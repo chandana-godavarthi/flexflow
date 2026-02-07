@@ -1,0 +1,8 @@
+--assume that schema exists and "use <schema>" was run
+
+--$location is replaced at execution time by the migration library with the storage path passed to the migration library
+--$schema is replaced at execution time by the schema name passed in
+--other $values can be passed in using kwargs.  
+--Read more about Migration library features and and details at https://github.com/procter-gamble/de-cf-ps-migration
+
+CREATE TABLE IF NOT EXISTS $schema.foo (`id` INT, `name` STRING) LOCATION '$location/foo';

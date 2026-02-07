@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../bundle_config_schema.json
+# The initial job for {{.project_name}}
+
+# Useful reference: https://docs.databricks.com/en/dev-tools/bundles/job-task-types.html
+
+resources:
+  jobs:
+    {{.project_name}}_job:
+      name: "[{{.project_name}}] - ETL"
+      
+      
+      schedule:
+        quartz_cron_expression: '0 0 0 ? * MON-FRI'
+        timezone_id: Europe/Amsterdam
+
+      # email_notifications:
+        # on_failure:
+          # - your-ops-email@pg.com
+          
+      tags:
+        pipeline: {{.project_name}}
+
+      tasks:
+        {{ if eq .developer_workflow "vscode-python" }}
+        - task_key: etl_task
+          job_cluster_key: job_cluster
+          python_wheel_task:
+            package_name: {{.project_name}}
+            entry_point: etl
+          libraries:
+            # By default we just include the .whl file generated for the {{.project_name}} package.
+            # See https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
+            # for more information on how to add other libraries.
+            - whl: ../dist/*.whl
+        {{- if ne .publish_type "no" }}
+        - task_key: publish_task
+          depends_on:
+            - task_key: etl_task
+          job_cluster_key: job_cluster
+          python_wheel_task:
+            package_name: {{.project_name}}
+            entry_point: publish
+          libraries:
+            # By default we just include the .whl file generated for the {{.project_name}} package.
+            # See https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
+            # for more information on how to add other libraries.
+            - whl: ../dist/*.whl
+        {{end}}
+        {{end}}
+        {{ if eq .developer_workflow "ui-notebook" }}
+        - task_key: run-notebook-task
+          job_cluster_key: job_cluster
+          # existing_cluster_id: "${var.instance_pool_id}"
+          notebook_task:
+            notebook_path: ${workspace.file_path}/${bundle.name}/notebooks/sample_notebook
+            source: WORKSPACE
+          # Ensure to use the latest stable version of libraries connected to the job
+          libraries:
+            - pypi:
+                package: pg-de-cf-databricks-configuration==0.19.0
+        {{ if ne .publish_type "no" }}
+        - task_key: run-notebook-publish
+          depends_on:
+            - task_key: run-notebook-task
+          job_cluster_key: job_cluster
+          notebook_task:
+            notebook_path: ${workspace.file_path}/${bundle.name}/notebooks/publish
+            source: WORKSPACE
+          # Ensure to use the latest stable version of libraries connected to the job
+          libraries:
+            - pypi:
+                package: pg-de-cf-databricks-configuration==0.19.0
+            - pypi:
+                package: pg-de-cf-cdl==0.160.2
+        {{- end}}
+        {{- end}}
+      job_clusters:
+        - job_cluster_key: job_cluster
+          new_cluster:
+            {{- if or (ne .dev_cluster_policy_name "") (ne .uat_cluster_policy_name "") (ne .prod_cluster_policy_name "") }}
+            policy_id: ${var.cluster_policy_id}
+            {{- end}}
+            {{- if or (ne .dev_instance_pool_name "") (ne .uat_instance_pool_name "") (ne .prod_instance_pool_name "") }}
+            instance_pool_id: "${var.instance_pool_id}"
+            {{- end}}
+            spark_version: {{template "latest_lts_dbr_version"}}
+            # Looking for a different node type?
+            # try 
+            # az vm list-sizes --location eastus2 --output table
+            node_type_id: Standard_D4as_v5
+            spark_env_vars:
+              {{- if ne .pip_extra_index_url_secret_name "" }}
+              PIP_EXTRA_INDEX_URL: {{`"{{secrets/${var.secret_scope}/`}}{{.pip_extra_index_url_secret_name}}}}"
+              {{- end }}
+              ENVIRONMENT: ${bundle.target}
+            autoscale:
+                min_workers: 1
+                max_workers: 1
+            custom_tags:
+              #these tags are aligned with cloudfinops team and used for finops reporting powerbi
+              #we recommend you add all that make sense, as well as any additional tags you want.
+              pipeline: {{.project_name}} #tag to replace ETL
+              region: global #change to region if relevant
+              medallionlevel: {{.schema_name}} #this should be gold/silver/bronze only

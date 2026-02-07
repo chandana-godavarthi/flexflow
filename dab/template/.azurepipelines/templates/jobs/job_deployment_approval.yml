@@ -1,0 +1,24 @@
+parameters:
+  - name: environment
+    default: unknown
+jobs:
+  - deployment: job_approval
+    displayName: "Job - Approval"
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: none
+            - checkout: none
+            - task: PowerShell@2
+              displayName: "DAB Deployment approval task: ${{ parameters.environment }}"
+              inputs:
+                pwsh: true
+                targetType: "inline"
+                script: |
+                  Write-Host "[INFO] Approval task: ${{ parameters.environment }}"
+                  if("${{ parameters.environment }}" -eq "unknown"){
+                    Write-Host "[ERROR] Environment name is not defined"
+                    exit 1
+                  }

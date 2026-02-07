@@ -1,0 +1,675 @@
+{
+    "welcome_message": "\nP&G Data & Analytics Databricks Asset Bundle Template\n",
+    "properties": {
+        "project_name": {
+            "type": "string",
+            "default": "pg_foo",
+            "description": "Name for this pipeline/product (a-z, 0-9, _) eg: 'pg_foo'",
+            "order": 10,
+            "pattern": "^[a-z0-9_]+$",
+            "pattern_match_failure_message": "Name must consist of letters, numbers, and underscores."
+        },
+        "schema_name": {
+            "type": "string",
+            "default": "bronze_foo",
+            "description": "Initial Schema name for this pipeline/product (a-z, 0-9, _)",
+            "order": 20,
+            "pattern": "^[a-z0-9_]+$",
+            "pattern_match_failure_message": "Name must consist of letters, numbers, and underscores."
+        },
+        "migrate": {
+            "type": "string",
+            "default": "yes",
+            "enum": ["yes", "no"],
+            "description": "Include Schema Migrations?",
+            "order": 30
+        },
+        "publish_type": {
+            "type": "string",
+            "default": "unity-catalog",
+            "enum": ["unity-catalog", "ddapi", "unity-catalog+ddapi", "no"],
+            "description": "Publish to P&G Core Data Lake?",
+            "order": 50
+        },
+        "das_rls": {
+            "type": "string",
+            "default": "no",
+            "enum": ["yes", "no"],
+            "description": "Implement row-level-security (rls) with CDL DAS?",
+            "order": 60,
+            "skip_prompt_if": {
+                "properties": {
+                    "publish_type": {
+                        "const": "no"
+                    }}
+            }
+        },
+        "developer_workflow": {
+            "type": "string",
+            "default": "vscode-python",
+            "enum": [
+                "vscode-python",
+                "ui-notebook"
+            ],
+            "description": "Choose a developer workflow",
+            "order": 70
+        },
+        "cicd_workflow": {
+            "type": "string",
+            "default": "github",
+            "enum": [
+                "github",
+                "azure-devops",
+                "azure-devops-gitflow",
+                "none"
+            ],
+            "description": "Which CI/CD pipeline orcherstator would You like to use? GitHub Actions or Azure DevOps",
+            "order": 80
+        },
+        "pip_extra_index_url_secret_name": {
+            "type": "string",
+            "default": "",
+            "description": "Secret name for PIP_EXTRA_INDEX_URL",
+            "order": 100
+        },
+        "environments": {
+            "type": "string",
+            "default": "dev,prod",
+            "description": "Deployment environment(s)",
+            "enum": ["dev", "dev,uat", "dev,prod", "dev,uat,prod", "prod"],
+            "order": 110
+        },
+        "ado_variable_group_name": {
+            "type": "string",
+            "description": "Name of Variable Group object in ADO project",
+            "default": "",
+            "order": 120,
+            "skip_prompt_if": {
+                "properties": {
+                    "cicd_workflow": {
+                        "pattern": "(github)|(none)"
+                    }
+                }
+            }
+        },
+        "ado_pipeline_name": {
+            "type": "string",
+            "description": "Name of databricks CI pipeline in ADO project",
+            "default": "databricks-ci-cd-pipeline",
+            "order": 130,
+            "skip_prompt_if": {
+                "properties": {
+                    "cicd_workflow": {
+                        "enum": ["github","none"]
+                    }
+                }
+            }
+        },
+        "ado_environment_staging": {
+            "type": "string",
+            "description": "Name of DEV environment object in ADO project",
+            "default": "",
+            "order": 150,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "pipeline_orchestrator": {
+                                "pattern": "github"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "ado_environment_production": {
+            "type": "string",
+            "description": "Name of Prod environment object in ADO project",
+            "default": "",
+            "order": 160,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "pipeline_orchestrator": {
+                                "pattern": "github"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_workspace": {
+            "type": "string",
+            "default": "",
+            "description": "Development (dev) databricks workspace url",
+            "order": 170,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_catalog": {
+            "type": "string",
+            "default": "hive_metastore",
+            "description": "Development (dev) catalog name (or hive_metastore)",
+            "order": 171,
+            "pattern": "^[a-z0-9_]+$",
+            "pattern_match_failure_message": "Name must consist of letters, numbers, and underscores.",
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_service_principal_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Development (dev) service principal name",
+            "order": 180,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_keyvault_name": {
+            "type": "string",
+            "default": "",
+            "description": "Development (dev) KeyVault name",
+            "order": 185,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties":{
+                            "cicd_workflow": {
+                                "enum": ["github","azure-devops","none"]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_secret_scope": {
+            "type": "string",
+            "default": "",
+            "description": "Development (dev) secret scope name",
+            "order": 190,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_cluster_policy_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Development (dev) cluster policy name",
+            "order": 191,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "dev_instance_pool_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Development (dev) instance pool name",
+            "order": 192,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_workspace": {
+            "type": "string",
+            "default": "",
+            "description": "UAT (uat) databricks workspace",
+            "order": 200,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_catalog": {
+            "type": "string",
+            "default": "hive_metastore",
+            "description": "UAT/QA (uat) catalog name (or hive_metastore)",
+            "order": 201,
+            "pattern": "^[a-z0-9_]+$",
+            "pattern_match_failure_message": "Name must consist of letters, numbers, and underscores.",
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_service_principal_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) UAT (uat) service principal name",
+            "order": 210,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_keyvault_name": {
+            "type": "string",
+            "default": "",
+            "description": "UAT (uat) KeyVault name",
+            "order": 215,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties":{
+                            "cicd_workflow": {
+                                "enum": ["github","azure-devops","none"]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_secret_scope": {
+            "type": "string",
+            "default": "",
+            "description": "UAT (uat) secret scope name",
+            "order": 220,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_cluster_policy_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) UAT (uat) cluster policy name",
+            "order": 221,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "uat_instance_pool_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) UAT (uat) instance pool name",
+            "order": 222,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,prod"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "prod"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_workspace": {
+            "type": "string",
+            "default": "",
+            "description": "Production (prod) databricks workspace",
+            "order": 230,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_catalog": {
+            "type": "string",
+            "default": "hive_metastore",
+            "description": "Production (prod) catalog name (or hive_metastore)",
+            "order": 231,
+            "pattern": "^[a-z0-9_]+$",
+            "pattern_match_failure_message": "Name must consist of letters, numbers, and underscores.",
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_service_principal_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Production (prod) service principal name",
+            "order": 240,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_keyvault_name": {
+            "type": "string",
+            "default": "",
+            "description": "Production (prod) KeyVault name",
+            "order": 245,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    },
+                    {
+                        "properties":{
+                            "cicd_workflow": {
+                                "enum": ["github","azure-devops","none"]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_secret_scope": {
+            "type": "string",
+            "default": "",
+            "description": "Production (prod) secret scope name",
+            "order": 250,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_cluster_policy_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Production (prod) cluster policy name",
+            "order": 260,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "prod_instance_pool_name": {
+            "type": "string",
+            "default": "",
+            "description": "(optional) Production (prod) instance pool name",
+            "order": 261,
+            "skip_prompt_if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev"
+                            }
+                        }
+                    },
+                    {
+                        "properties": {
+                            "environments": {
+                                "const": "dev,uat"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "success_message": "🤖✨Pipeline created.✨🤖\n\nYour Pipeline has the following features pre-configured:\n\n\t-Dev Container\n\t-Databricks Connect\n\t-Debug Configurations for Local Python and Run in Databricks\n\t-Python/Sql Formatting & Linting with Black & SqlFluff\n\t-Recommended VsCode Extensions\n\t-Schema Migration - $poetry run migrate\n\t-Unit & Integration Tests - $poetry run pytest\n\t-CDL Publication\n\t-YAML Configuration\n\t-Dependencies, virtualenv, and packaging with Poetry - $poetry install\n\t-Build/Deploy/Run with databricks cli - $databricks bundle deploy\n\t-Git Pre-commit with gitleaks & formatting checks\n\t-CI\n\t\t-Unit & Integration Tests\n\t\t-Code Coverage\n\t\t-Linting & Formatting (.sql and .py)\n\t\t-Versioning & Tagging\n\t\t-SonarQube\n\t\t-GitLeaks\n\t\t-Snyk\n\t\t-WHL Packaging\n\t\t-Workflow Governance(Cluster Configuration, Tagging, Notifications)\n\t-CD\n\t\t-Databricks Workflow Deployment\n\t\t-Schema Migration\n\nPlease see the README.md of your project for further instructions.\n"
+}

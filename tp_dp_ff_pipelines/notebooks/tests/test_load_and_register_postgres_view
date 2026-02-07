@@ -1,0 +1,103 @@
+import unittest
+from unittest.mock import MagicMock, patch
+
+# Adjust the import path based on your project structure
+from src.tp_utils.common import load_and_register_postgres_view
+
+class TestLoadAndRegisterPostgresView(unittest.TestCase):
+
+    def setUp(self):
+        self.query_template = "SELECT * FROM some_table WHERE id = {id}"
+        self.view_name = "test_view"
+        self.params = {"id": 123}
+        self.jdbc_url = "jdbc:postgresql://localhost:5432/refdb"
+        self.db_name = "refdb"
+        self.db_user = "user"
+        self.db_pwd = "pwd"
+        self.spark = MagicMock()
+
+    def test_successful_query_with_params(self):
+        mock_df = MagicMock()
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger, \
+             patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df) as mock_read_query:
+
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            result = load_and_register_postgres_view(
+                self.spark,
+                self.jdbc_url,
+                self.db_name,
+                self.db_user,
+                self.db_pwd,
+                self.query_template,
+                self.view_name,
+                self.params
+            )
+
+        mock_read_query.assert_called_once_with(
+            "SELECT * FROM some_table WHERE id = 123",
+            self.spark,
+            self.jdbc_url,
+            self.db_name,
+            self.db_user,
+            self.db_pwd
+        )
+        mock_logger.error.assert_not_called()
+        self.assertEqual(result, mock_df)
+
+    def test_successful_query_without_params(self):
+        mock_df = MagicMock()
+
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger, \
+             patch("src.tp_utils.common.read_query_from_postgres", return_value=mock_df) as mock_read_query:
+
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            result = load_and_register_postgres_view(
+                self.spark,
+                self.jdbc_url,
+                self.db_name,
+                self.db_user,
+                self.db_pwd,
+                "SELECT * FROM some_table",
+                self.view_name,
+                None
+            )
+
+        mock_read_query.assert_called_once_with(
+            "SELECT * FROM some_table",
+            self.spark,
+            self.jdbc_url,
+            self.db_name,
+            self.db_user,
+            self.db_pwd
+        )
+        mock_logger.error.assert_not_called()
+        self.assertEqual(result, mock_df)
+
+    def test_query_execution_failure(self):
+        with patch("src.tp_utils.common.get_logger") as mock_get_logger, \
+             patch("src.tp_utils.common.read_query_from_postgres", side_effect=Exception("DB error")):
+
+            mock_logger = MagicMock()
+            mock_get_logger.return_value = mock_logger
+
+            try:
+                result = load_and_register_postgres_view(
+                    self.spark,
+                    self.jdbc_url,
+                    self.db_name,
+                    self.db_user,
+                    self.db_pwd,
+                    self.query_template,
+                    self.view_name,
+                    self.params
+                )
+            except UnboundLocalError:
+                result = None  # df was never assigned due to exception
+
+        mock_logger.error.assert_called_once()
+        self.assertIsNone(result)

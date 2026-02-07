@@ -1,0 +1,77 @@
+parameters:
+  - name: dbrToken
+    type: string
+  - name: dbrHost
+    type: string
+  - name: dbrCliVersion
+    type: string
+  - name: environment
+    type: string
+  - name: runAfterDeploy
+    type: boolean
+  - name: azureSubscription
+    type: string
+  - name: clusterId
+    type: string
+  - name: environmentObject
+    type: string
+
+stages:
+- stage: Deploy{{`_${{ parameters.environment }}`}}
+  displayName: "Deploy Stage {{`${{ parameters.environment }}`}}"
+  jobs:
+  - deployment: Deploy
+    displayName: "Deploy target: {{`${{ parameters.environment }}`}}"
+    environment: {{`${{ parameters.environmentObject }}`}}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: none
+
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                buildType: specific
+                artifactName: DAB-$(resources.pipeline.ado-ci.runID)
+                targetPath: $(System.DefaultWorkingDirectory)
+                project: $(System.TeamProject)
+                definition: $(resources.pipeline.ado-ci.pipelineID)
+                runid: $(resources.pipeline.ado-ci.runID)
+
+            - bash: |
+                unzip DAB-$(resources.pipeline.ado-ci.runID)
+              displayName: 'Unzip bundle'
+            {{ if eq .migrate "yes" }}
+            - template: ./poetry.yml
+              parameters:
+                JfrogUsername: $(jfrogUsername)
+                JfrogPassword: $(jfrogPassword)
+            {{end}}
+            - template: ./databricks-cli.yaml
+              parameters:
+                DatabricksCliVersion: {{`${{ parameters.dbrCliVersion }}`}}
+                DatabrickHost:  {{`${{ parameters.dbrHost }}`}}
+                DatabrickToken: {{`${{ parameters.dbrToken }}`}}
+            {{ if eq .migrate "yes" }}
+            - template: ./migrate-schema.yaml
+              parameters:
+                environment: {{`${{ parameters.environment }}`}}
+                clusterId: {{`${{ parameters.clusterId }}`}}
+                azureSubscription: {{`${{ parameters.azureSubscription }}`}}
+            {{end}}
+
+            - bash: |
+                echo "Validating bundle on target: {{`${{ parameters.environment }}`}}"
+                databricks bundle validate -t {{`${{ parameters.environment }}`}}
+              displayName: "Bundle validate"
+
+            - bash: |
+                  echo "Deploying bundle to taget: {{`${{ parameters.environment }}`}}"
+                  databricks bundle deploy -t {{`${{ parameters.environment }}`}}
+              displayName: "Bundle deploy"
+
+            - bash: |
+                  echo "Running bundle job: {{.project_name}}_job on target: {{`${{ parameters.environment }}`}}"
+                  databricks bundle run {{.project_name}}_job -t {{`${{ parameters.environment }}`}}
+              displayName: "Bundle run"
+              enabled: {{`${{ parameters.runAfterDeploy }}`}}

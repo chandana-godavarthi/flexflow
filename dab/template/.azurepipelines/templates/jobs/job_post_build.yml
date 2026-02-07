@@ -1,0 +1,13 @@
+jobs:
+  - job: job_post_build
+    displayName: "Agent job - Update build tags"
+    dependsOn: job_build
+    condition: succeeded('job_build')
+    steps:
+      - task: PowerShell@2
+        name: task_update_build_tags
+        displayName: "Task - Update build tags"
+        inputs:
+          pwsh: true
+          filePath: "$(System.DefaultWorkingDirectory)/.azurepipelines/templates/scripts/Set-BuildPipelineTags.ps1"
+          arguments: '-SourceBranch "$(Build.SourceBranch)"'

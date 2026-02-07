@@ -1,0 +1,10 @@
+stages:
+  - stage: stage_code_validation
+    displayName: "Stage - Code validation"
+    jobs:
+      - template: src/main.yml@DA
+{{- if eq .developer_workflow "vscode-python"}}
+        parameters:
+          SonarQubeStandardEnabled: false
+      - template: ../jobs/job_additional_validation.yml
+{{end}}

@@ -1,0 +1,69 @@
+# Continuous Integration - Build Pipeline
+trigger:
+  - main
+  - master
+  - develop
+  - release/*
+  - hotfix/*
+pr:
+  - main
+  - master
+  - develop
+variables:
+  - group: {{.ado_variable_group_name}}
+  - name: system.debug 
+    value: true
+  - name: Agent.Source.Git.ShallowFetchDepth
+    value: 0
+  - name: azure_subscription
+    value: {{.dev_service_principal_name}}
+  - name: keyvault_name
+    value: {{.dev_keyvault_name}}
+  - name: default_python_version
+    value: 3.11
+pool: DA-VM-L-NonProd
+resources:
+  repositories:
+    - repository: DA
+      endpoint: procter-gamble
+      type: github
+      name: "procter-gamble/DA-PP-PDA-CICD-templates-pipeline"
+      ref: refs/heads/master
+stages:
+  - template: templates/stages/stage_validation.yml
+  {{`- ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/develop') }}:`}}
+      - template: templates/stages/stage_environment.yml
+        parameters:
+          stage_name: development
+          display_name: "Stage - Build package (development)"
+          {{- if eq .developer_workflow "vscode-python"}}
+          databricks_host: $(WorkspaceDevURL)
+          databricks_cluster: $(ClusterIDDev)
+          {{- end}}
+  {{`- ${{ elseif or(contains(variables['Build.SourceBranch'], 'refs/heads/release/'), contains(variables['Build.SourceBranch'], 'refs/heads/hotfix/')) }}:`}}
+      - template: templates/stages/stage_environment.yml
+        parameters:
+          stage_name: uat
+          display_name: "Stage - Build package (uat)"
+          {{- if eq .developer_workflow "vscode-python"}}
+          databricks_host: $(WorkspaceDevURL)
+          databricks_cluster: $(ClusterIDDev)
+          {{- end}}
+  - {{`${{ elseif or(eq(variables['Build.SourceBranch'], 'refs/heads/main'),eq(variables['Build.SourceBranch'], 'refs/heads/master')) }}:`}}
+      - template: templates/stages/stage_environment.yml
+        parameters:
+          stage_name: production
+          display_name: "Stage - Build package (production)"
+          {{- if eq .developer_workflow "vscode-python"}}
+          databricks_host: $(WorkspaceDevURL)
+          databricks_cluster: $(ClusterIDDev)
+          {{- end}}
+  {{`- ${{ else }}:`}}
+      - template: templates/stages/stage_environment.yml
+        parameters:
+          stage_name: undefined
+          display_name: "Stage - Build package (pr, feature or unknown)"
+          {{- if eq .developer_workflow "vscode-python"}}
+          databricks_host: $(WorkspaceDevURL)
+          databricks_cluster: $(ClusterIDDev)
+          {{- end}}

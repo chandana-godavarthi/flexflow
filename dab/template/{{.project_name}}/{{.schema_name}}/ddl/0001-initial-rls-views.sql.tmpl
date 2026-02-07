@@ -1,0 +1,25 @@
+--these migrations define your RLS views.  The example below security is based on "customer", but you may
+--create your own column(s)=>sgk mapping in your mapping table and join it below
+
+--assume that schema exists and "use <schema>" was run
+--$schema is replaced at execution time by the schema name passed in
+--$hrschema is the schema that contains the actual table being protected by rls
+--Read more about Migration library features and and details at https://github.com/procter-gamble/de-cf-ps-migration
+
+CREATE VIEW IF
+NOT EXISTS $schema.foo
+AS
+(
+    SELECT
+        foo.*
+        , rls.sgk
+    FROM $hrschema.foo AS foo
+    INNER JOIN $hrschema.rls_ad_lkp AS rls
+        ON
+            foo.customer = rls.customer
+    INNER JOIN das_prod.default.user_permission_mapping_uc_df AS das ON
+        rls.sgk = das.permission_key
+        AND das.logical_table = 'foo'
+        AND das.user_principal_name = current_user(
+        )
+);

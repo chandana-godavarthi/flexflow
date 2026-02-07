@@ -1,0 +1,127 @@
+from typing import Dict, List, Optional, Union
+
+from pg_composite_pipelines_configuration.configuration import Configuration
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import col
+from pyspark.sql.types import DataType, StructType
+
+from {{.project_name}}.common import (
+    get_dbutils, 
+    get_spark, 
+    get_logger
+)
+
+def read_dataframe(
+    spark: SparkSession,
+    data_format: str,
+    path: Union[str, List[str]],
+    schema: Optional[Union[str, StructType]] = None,
+    options: Optional[Dict[str, str]] = None,
+) -> DataFrame:
+    """Read data from a specific location and create a DataFrame
+
+    Args:
+        spark (SparkSession): global spark session
+        data_format (str): data format
+        path (str | list[str]): location to read data from
+        schema (str | StructType): an optional ddl string or a spark DataType schema
+        options (dict): an optional dictionary of options to be passed to the reader
+
+    Returns
+        DataFrame
+    """
+
+    reader = spark.read.format(data_format)
+    if schema:
+        reader = reader.schema(schema)
+    if options:
+        reader = reader.options(**options)
+    return reader.load(path)
+
+
+def transform_dataframe(df: DataFrame, cast_to: Union[DataType, str]) -> DataFrame:
+    """Cast all columns in a DataFrame to a specific DataType
+
+    Args:
+        df (DataFrame): DataFrame
+        cast_to (DataType | str): Target datatype
+
+    Returns:
+        DataFrame
+    """
+
+    return df.select([col(col_name).cast(cast_to) for col_name in df.columns])
+
+
+def write_dataframe(
+    df: DataFrame,
+    dest_schema: str,
+    dest_table: str,
+    path: str,
+    mode: Optional[str] = "append",
+    options: Optional[Dict[str, str]] = None,
+    partition_by: Optional[Union[str, List[str]]] = None,
+) -> None:
+    """Write a DataFrame as an externally managed table
+
+    Args:
+        df (DataFrame): DataFrame
+        dest_schema (str): destination schema name
+        dest_table (str): destination table name
+        path (str): location where to save the data in storage
+        mode (str, optional): save mode. Defaults to "append".
+        options (Dict[str, str], optional): write options to apply. Defaults to None.
+        partition_by (Union[str, List[str]], optional): partition columns to apply. Defaults to None.
+    """
+
+    writer = df.write.format("delta").mode(mode).option("path", path)
+    if options:
+        writer = writer.options(**options)
+    if partition_by:
+        writer = writer.partitionBy(partition_by)
+    writer.saveAsTable(f"{dest_schema}.{dest_table}")
+
+
+# to pass params in from the task, add them here
+def main():  # pylint: disable=W8916
+    spark = get_spark()
+    dbutils = get_dbutils()
+    logger = get_logger()
+
+    logger.info(f"Starting {{.project_name}}")
+
+    config = Configuration.load_for_default_environment(__file__, dbutils)
+
+    catalog, schema = config["catalog-name"], config["schema-name"]
+
+    path = f"abfss://{config['storage']['container-name']}@{config['storage']['account-name']}.dfs.core.windows.net"
+    table_config = config["tables"][0]
+    source_path = f"{path}/{table_config['source-path']}"
+    save_path = f"{path}/{table_config['destination-path']}"
+    spark = get_spark()
+
+    schema = f"{config['catalog-name']}.{config['schema-name']}"
+
+    spark.sql(f"USE CATALOG {catalog}")
+
+    df = read_dataframe(
+        spark=spark,
+        data_format="csv",
+        path=source_path,
+        options={"header": "true"},
+    )
+
+    df = transform_dataframe(df=df, cast_to="int")
+
+    write_dataframe(
+        df=df,
+        dest_schema=schema,
+        dest_table=table_config["unity-catalog-table-name"],
+        path=save_path,
+    )
+
+
+if __name__ == "__main__":
+    # if you need to read params from your task/workflow, use sys.argv[] to retrieve them and pass them to main here
+    # eg sys.argv[0] for first positional param
+    main()
